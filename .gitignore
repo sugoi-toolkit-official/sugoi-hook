@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build artifacts
+*.build/
+*.dist/
+*.onefile-build/
+nuitka_onefile_fixed/
+final build/
+Luna Hook GUI/
+SugoiHook_builds/
+
+# Test files
+test/
+test_*.py
+
+# Backup files
+*_backup.py
+*.bak
+
+# Documentation (keep only README.md)
+docs/
+
+# Config (user-specific)
+plugins_config.json
