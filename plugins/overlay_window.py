@@ -35,6 +35,12 @@ class OverlayWindowPlugin(TextractorPlugin):
             return
 
         self.overlay.title("Text Overlay")
+        
+        # Set min/max size constraints
+        self.overlay.minsize(400, 100)
+        self.overlay.maxsize(1200, 300)
+        
+        # Initial geometry
         self.overlay.geometry("800x150+100+100")
         
         # Remove window decorations (title bar, borders)

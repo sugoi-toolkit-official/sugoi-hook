@@ -33,6 +33,7 @@ nuitka_onefile_fixed/
 final build/
 Luna Hook GUI/
 SugoiHook_builds/
+Bundled_SugoiHook/
 
 # Test files
 test/
