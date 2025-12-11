@@ -477,7 +477,8 @@ class ModernTextractorGUI:
         
         current_text = text
         
-        for plugin_filename in self.active_plugins:
+        # Iterate over a copy of active_plugins to avoid thread safety issues
+        for plugin_filename in list(self.active_plugins):
             if plugin_filename in self.plugins:
                 plugin = self.plugins[plugin_filename]
                 if plugin.enabled:
@@ -1609,7 +1610,11 @@ For more information, refer to the Textractor documentation.
                 
                 console_match = console_pattern.match(line)
                 if console_match:
-                    self.root.after(0, self.append_output, f"[Console] {console_match.group(1)}\n")
+                    # Process console output in background thread
+                    text_to_process = f"[Console] {console_match.group(1)}\n"
+                    processed_text = self.process_text_through_plugins(text_to_process)
+                    if processed_text is not None:
+                        self.root.after(0, self.append_output, processed_text, False)
                     continue
                 
                 match = pattern.match(line)
@@ -1637,9 +1642,15 @@ For more information, refer to the Textractor documentation.
                     
                     if self.selected_hook_id and hook_id == self.selected_hook_id:
                         if text:
-                            self.root.after(0, self.append_output, text + "\n")
+                            # Process text through plugins in background thread
+                            processed_text = self.process_text_through_plugins(text + "\n")
+                            if processed_text is not None:
+                                self.root.after(0, self.append_output, processed_text, False)
                     elif not self.selected_hook_id:
-                        self.root.after(0, self.append_output, f"[Hook {hook_id}] {text}\n")
+                        # Process text through plugins in background thread
+                        processed_text = self.process_text_through_plugins(f"[Hook {hook_id}] {text}\n")
+                        if processed_text is not None:
+                            self.root.after(0, self.append_output, processed_text, False)
                 
             except Exception:
                 break
@@ -1707,10 +1718,13 @@ For more information, refer to the Textractor documentation.
         except Exception as e:
             messagebox.showerror("Error", f"Failed to select hook:\n{str(e)}")
     
-    def append_output(self, text):
+    def append_output(self, text, process_plugins=True):
         """Append text to the output area with plugin filtering"""
-        # Process text through active plugins
-        processed_text = self.process_text_through_plugins(text)
+        if process_plugins:
+            # Process text through active plugins
+            processed_text = self.process_text_through_plugins(text)
+        else:
+            processed_text = text
         
         # If plugin filtered out the text, don't display it
         if processed_text is None:
