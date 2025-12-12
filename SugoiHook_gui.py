@@ -928,14 +928,14 @@ class ModernTextractorGUI:
     def create_process_card(self, parent):
         """Create the process selection card"""
         card = ttk.Frame(parent, style="Card.TFrame", padding=12)
-        card.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+        card.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 15))
         card.columnconfigure(0, weight=1)
         
         # Card header
         header = ttk.Frame(card)
         header.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 7))
         
-        ttk.Label(header, text="🎮 Select Process", style="Title.TLabel").pack(side=tk.LEFT)
+        ttk.Label(header, text="🎮 1. Select Process", style="Title.TLabel").pack(side=tk.LEFT)
         
         # Search and refresh
         search_frame = ttk.Frame(card)
@@ -997,11 +997,11 @@ class ModernTextractorGUI:
     def create_hook_card(self, parent):
         """Create the hook selection card"""
         card = ttk.Frame(parent, style="Card.TFrame", padding=12)
-        card.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+        card.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 15))
         card.columnconfigure(0, weight=1)
         
         # Card header
-        ttk.Label(card, text="🎯 Select Hook", style="Title.TLabel").grid(row=0, column=0, sticky=tk.W, pady=(0, 4))
+        ttk.Label(card, text="🎯 2. Select Hook", style="Title.TLabel").grid(row=0, column=0, sticky=tk.W, pady=(0, 4))
         
         # Hook list
         list_frame = ttk.Frame(card)
@@ -1064,7 +1064,7 @@ class ModernTextractorGUI:
     def create_plugins_card(self, parent):
         """Create the plugins management card"""
         card = ttk.Frame(parent, style="Card.TFrame", padding=12)
-        card.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+        card.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 15))
         card.columnconfigure(0, weight=1)
         
         # Card header
@@ -1072,7 +1072,7 @@ class ModernTextractorGUI:
         header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 4))
         header_frame.columnconfigure(1, weight=1)
         
-        ttk.Label(header_frame, text="🔌 Plugins", style="Title.TLabel").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(header_frame, text="🔌 Plugins (optional)", style="Title.TLabel").grid(row=0, column=0, sticky=tk.W)
         
         # Plugin action buttons
         btn_frame = ttk.Frame(header_frame)
@@ -1136,7 +1136,7 @@ class ModernTextractorGUI:
     def create_output_card(self, parent):
         """Create the text output card"""
         card = ttk.Frame(parent, style="Card.TFrame", padding=12)
-        card.grid(row=3, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 5))
+        card.grid(row=3, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 15))
         card.columnconfigure(0, weight=1)
         card.rowconfigure(1, weight=1)
         
