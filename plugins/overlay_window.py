@@ -41,7 +41,7 @@ class OverlayWindowPlugin(TextractorPlugin):
         self.overlay.maxsize(1200, 300)
         
         # Initial geometry
-        self.overlay.geometry("800x150+100+100")
+        self.overlay.geometry("900x200+100+100")
         
         # Remove window decorations (title bar, borders)
         self.overlay.overrideredirect(True)
@@ -162,8 +162,9 @@ class OverlayWindowPlugin(TextractorPlugin):
                     translation = parts[-1]
                     original = '\n'.join(parts[:-1])
                     
-                    self.text_widget.insert(tk.END, original + "\n", "original")
-                    self.text_widget.insert(tk.END, translation, "translation")
+                    # Display translation first (top), then original (bottom)
+                    self.text_widget.insert(tk.END, translation + "\n", "translation")
+                    self.text_widget.insert(tk.END, original, "original")
                 else:
                     # Fallback
                     self.text_widget.insert(tk.END, clean_text, "original")
