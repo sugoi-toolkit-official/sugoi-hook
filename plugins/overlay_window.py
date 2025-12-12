@@ -88,6 +88,12 @@ class OverlayWindowPlugin(TextractorPlugin):
         self.text_widget.tag_config("translation", foreground="#89b4fa", font=("Segoe UI", 14, "bold"))
         self.text_widget.tag_config("warning", foreground="#f9e2af", font=("Segoe UI", 12, "italic"))
 
+        # Add resize grip (bottom-right corner)
+        resize_grip = tk.Label(self.overlay, text="◢", bg=bg_color, fg='#585b70', font=("Arial", 10), cursor="size_nw_se")
+        resize_grip.place(relx=1.0, rely=1.0, anchor="se")
+        resize_grip.bind("<Button-1>", self.start_resize)
+        resize_grip.bind("<B1-Motion>", self.do_resize)
+
     def start_move(self, event):
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
@@ -98,6 +104,21 @@ class OverlayWindowPlugin(TextractorPlugin):
         x = self.overlay.winfo_x() + deltax
         y = self.overlay.winfo_y() + deltay
         self.overlay.geometry(f"+{x}+{y}")
+
+    def start_resize(self, event):
+        self.drag_data["width"] = self.overlay.winfo_width()
+        self.drag_data["height"] = self.overlay.winfo_height()
+        self.drag_data["start_x"] = event.x_root
+        self.drag_data["start_y"] = event.y_root
+
+    def do_resize(self, event):
+        delta_x = event.x_root - self.drag_data["start_x"]
+        delta_y = event.y_root - self.drag_data["start_y"]
+        
+        new_width = max(400, min(1200, self.drag_data["width"] + delta_x))
+        new_height = max(100, min(300, self.drag_data["height"] + delta_y))
+        
+        self.overlay.geometry(f"{new_width}x{new_height}")
 
     def process_text(self, text: str) -> str:
         if not self.enabled:

@@ -6,7 +6,7 @@ A beautiful and user-friendly GUI wrapper for Textractor CLI, designed for extra
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 
-## 🌟 Features
+## Features
 
 ### Core Functionality
 - **Process Attachment**: Attach to any running process with intelligent filtering
@@ -30,9 +30,10 @@ Built-in plugins for text processing:
 - **Remove Special Characters**: Clean unwanted characters
 - **Remove Duplicates**: Eliminate duplicate text entries
 - **Minimum Length Filter**: Filter text by minimum length
-- **Google Translate**: Real-time translation overlay (optional)
+- **Google Translate**: Real-time extracted text translation
+- **Overlay Window**: Display extracted text as an overlay on screen (optional)
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Windows 10/11
@@ -56,7 +57,7 @@ pip install -r requirements.txt
 python SugoiHook_gui.py
 ```
 
-## 📖 How to Use
+## How to Use
 
 ### Basic Workflow
 
@@ -121,7 +122,7 @@ Click the ❓ button in the GUI for complete syntax documentation.
    plugin = MyPlugin()
    ```
 
-## 🏗️ Architecture
+## Architecture
 
 ### Core Logic
 
@@ -147,7 +148,7 @@ The application uses multiple heuristics to filter processes:
 - **Window detection**: Only shows processes with visible windows
 - **PID filtering**: Excludes very low PIDs (system processes)
 
-## 🔧 Technical Details
+## Technical Details
 
 ### Dependencies
 - **tkinter**: GUI framework
@@ -185,7 +186,7 @@ build.bat
 
 This will compile the application into a standalone executable using Nuitka.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 This project is built on top of [Textractor](https://github.com/Chenx221/Textractor), a modified version of the original Textractor by Artikash. We are grateful for their contribution to the text extraction community.
 
@@ -196,11 +197,11 @@ This project is built on top of [Textractor](https://github.com/Chenx221/Textrac
 - **Modified Textractor**: [Chenx221/Textractor](https://github.com/Chenx221/Textractor)
 - **SugoiHook GUI**: Modern interface and plugin system
 
-## 📝 License
+## License
 
 This project is licensed under the GPL-3.0 License - see the LICENSE file for details.
 
-## 📧 Contact
+## Contact
 
 For any queries, support, or discussions, join the **Sugoi Toolkit Discord Server**:
 
