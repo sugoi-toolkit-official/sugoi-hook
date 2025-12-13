@@ -17,8 +17,8 @@ try:
     
     if is_frozen or is_nuitka:
         # Running as compiled executable
-        # The Translator folder is copied to Documents/SugoiHook/Translator
-        user_data_dir = Path(os.path.expanduser("~/Documents/SugoiHook"))
+        # Look for Translator folder next to the executable
+        user_data_dir = Path(sys.executable).parent
         translator_dir = user_data_dir / 'Translator'
         
         # Add to sys.path if not already there

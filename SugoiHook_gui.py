@@ -206,19 +206,18 @@ class ModernTextractorGUI:
                 self.base_path = Path(__file__).parent
                 self.app_path = Path(sys.executable).parent
             
-            # Store plugins in user's Documents folder for persistence
-            self.user_data_dir = Path(os.path.expanduser("~/Documents/SugoiHook"))
+            # Use user_data_dir as the directory where the executable is located
+            self.user_data_dir = self.app_path
             self.plugins_folder = self.user_data_dir / "plugins"
             self.plugins_config_path = self.user_data_dir / "plugins_config.json"
             
             # Ensure user data directory exists
             self.user_data_dir.mkdir(parents=True, exist_ok=True)
             
-            # Copy bundled plugins to user directory if they don't exist
-            self.copy_bundled_plugins()
-            
-            # Copy bundled Translator folder to user directory if it doesn't exist
-            self.copy_bundled_translator()
+            # Do not copy bundled plugins or translator to Documents
+            # Instead, rely on them being present next to the executable
+            # self.copy_bundled_plugins()
+            # self.copy_bundled_translator()
             
         else:
             # Running as Python script
