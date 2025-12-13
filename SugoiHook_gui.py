@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 SugoiHook GUI - Modern Text Extraction Interface
-A beautiful and user-friendly GUI wrapper for Textractor CLI text extraction tool.
 Built on top of Textractor by Artikash (https://github.com/Chenx221/Textractor)
 """
 
