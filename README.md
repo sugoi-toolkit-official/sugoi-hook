@@ -1,4 +1,4 @@
-# SugoiHook - Modern Text Extraction GUI
+# Sugoi Hook - Modern Text Extraction GUI
 
 A beautiful and user-friendly GUI wrapper for Textractor CLI, designed for extracting text from games and applications in real-time.
 
@@ -78,7 +78,7 @@ python SugoiHook_gui.py
 
 ### Manual Hook Codes
 
-SugoiHook supports Textractor hook codes for advanced users:
+Sugoi Hook supports Textractor hook codes for advanced users:
 
 **H-Codes (Hook Codes)**
 ```
@@ -126,7 +126,7 @@ Click the ❓ button in the GUI for complete syntax documentation.
 
 ### Core Logic
 
-SugoiHook uses a multi-threaded architecture:
+Sugoi Hook uses a multi-threaded architecture:
 
 1. **Main Thread**: Handles UI rendering and user interactions
 2. **CLI Process Thread**: Manages communication with TextractorCLI.exe
@@ -190,12 +190,12 @@ This will compile the application into a standalone executable using Nuitka.
 
 This project is built on top of [Textractor](https://github.com/Chenx221/Textractor), a modified version of the original Textractor by Artikash. We are grateful for their contribution to the text extraction community.
 
-**Textractor** is a powerful text hooking tool that enables real-time text extraction from games and applications. SugoiHook provides a modern, user-friendly interface to make Textractor more accessible.
+**Textractor** is a powerful text hooking tool that enables real-time text extraction from games and applications. Sugoi Hook provides a modern, user-friendly interface to make Textractor more accessible.
 
 ### Credits
 - **Original Textractor**: [Artikash/Textractor](https://github.com/Artikash/Textractor)
 - **Modified Textractor**: [Chenx221/Textractor](https://github.com/Chenx221/Textractor)
-- **SugoiHook GUI**: Modern interface and plugin system
+- **Sugoi Hook GUI**: Modern interface and plugin system
 
 ## License
 
