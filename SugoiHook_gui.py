@@ -2082,6 +2082,35 @@ For more information, refer to the Textractor documentation.
         self.root.destroy()
 
 def main():
+    # Check if running as script and ensure admin rights
+    # This enables the underlying CLI to attach to games running as admin
+    is_frozen = getattr(sys, 'frozen', False)
+    is_nuitka = getattr(sys, '__compiled__', False) or (
+        sys.executable.lower().endswith('.exe') and 
+        'python' not in os.path.basename(sys.executable).lower()
+    )
+    is_compiled = is_frozen or is_nuitka
+    
+    if not is_compiled:
+        try:
+            if not ctypes.windll.shell32.IsUserAnAdmin():
+                # Re-run with admin rights
+                # Use subprocess.list2cmdline to properly quote arguments
+                params = subprocess.list2cmdline(sys.argv)
+                
+                # Use pythonw.exe if available to avoid opening a new console window
+                executable = sys.executable
+                if executable.lower().endswith('python.exe'):
+                    pythonw = executable[:-4] + 'w.exe'
+                    if os.path.exists(pythonw):
+                        executable = pythonw
+                
+                ctypes.windll.shell32.ShellExecuteW(None, "runas", executable, params, None, 1)
+                sys.exit()
+        except Exception:
+            # If elevation fails or is cancelled, continue as normal user
+            pass
+
     # Enable DPI awareness for crisp text
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
