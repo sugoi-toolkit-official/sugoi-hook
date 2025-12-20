@@ -30,8 +30,14 @@ Built-in plugins for text processing:
 - **Remove Special Characters**: Clean unwanted characters
 - **Remove Duplicates**: Eliminate duplicate text entries
 - **Minimum Length Filter**: Filter text by minimum length
+- **Fix Repeated Characters**: Fix repeated character patterns in text
 - **Google Translate**: Real-time extracted text translation
 - **Overlay Window**: Display extracted text as an overlay on screen (optional)
+
+**Plugin Features:**
+- **Drag & Drop Reordering**: Reorder plugins by dragging them in the list
+- **Persistent Order**: Plugin order and active states are saved and restored on restart
+- **Sequential Processing**: Text is processed through plugins in the order they appear
 
 ## Quick Start
 
@@ -99,14 +105,19 @@ Click the ❓ button in the GUI for complete syntax documentation.
 
 1. **Activate/Deactivate Plugins**
    - Double-click a plugin in the Plugins section to toggle it
-   - Active plugins process text in order
+   - Active plugins process text in the order they appear
 
-2. **Add Custom Plugins**
+2. **Reorder Plugins**
+   - Drag and drop plugins in the list to change their execution order
+   - The first plugin in the list is applied first, then the next, and so on
+   - Plugin order is automatically saved and restored on restart
+
+3. **Add Custom Plugins**
    - Click "📂 Open Folder" to access the plugins directory
    - Create a new `.py` file following the plugin template
    - Click "🔄 Refresh" to load new plugins
 
-3. **Plugin Development**
+4. **Plugin Development**
    ```python
    from plugins import TextractorPlugin
 

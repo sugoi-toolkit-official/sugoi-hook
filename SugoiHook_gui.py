@@ -107,7 +107,8 @@ class ModernTextractorGUI:
         
         # Plugin system (paths set after base_path is determined)
         self.plugins = {}  # Dictionary of loaded plugins: {filename: plugin_instance}
-        self.active_plugins = []  # List of active plugin filenames in order
+        self.active_plugins = []  # List of active plugin filenames
+        self.plugin_order = []  # List of all plugin filenames in display/execution order
         self.plugins_config_path = None  # Set after base_path
         self.plugins_folder = None  # Set after base_path
         
@@ -224,7 +225,7 @@ class ModernTextractorGUI:
             self.base_path = Path(__file__).parent
             self.app_path = self.base_path
             self.plugins_folder = self.app_path / "plugins"
-            self.plugins_config_path = self.app_path / "plugins_config.json"
+        self.plugins_config_path = self.app_path / "plugins_config.json"
         
         self.cli_x86_path = self.base_path / "builds" / "_x86" / "TextractorCLI.exe"
         self.cli_x64_path = self.base_path / "builds" / "_x64" / "TextractorCLI.exe"
@@ -348,12 +349,12 @@ class ModernTextractorGUI:
     
     def init_plugin_system(self):
         """Initialize the plugin system"""
-        if not PLUGINS_AVAILABLE:
-            return
-        
-        # Ensure plugins folder exists
+        # Ensure plugins folder exists regardless of PLUGINS_AVAILABLE logic
         if not self.plugins_folder.exists():
             self.plugins_folder.mkdir(parents=True, exist_ok=True)
+            
+        if not PLUGINS_AVAILABLE:
+            return
         
         # Load saved plugin configuration
         self.load_plugins_config()
@@ -366,10 +367,13 @@ class ModernTextractorGUI:
         if not self.plugins_folder.exists():
             return
         
+        current_files = set()
         for plugin_file in self.plugins_folder.glob("*.py"):
             # Skip __init__.py and other special files
             if plugin_file.name.startswith("_"):
                 continue
+            
+            current_files.add(plugin_file.name)
             
             try:
                 plugin = self.load_plugin(plugin_file)
@@ -382,6 +386,54 @@ class ModernTextractorGUI:
         
         # Clean up active_plugins list - remove any that weren't found
         self.active_plugins = [p for p in self.active_plugins if p in self.plugins]
+        
+        # Update plugin_order
+        # 1. Remove files that no longer exist
+        self.plugin_order = [p for p in self.plugin_order if p in self.plugins]
+        # 2. Add new files that aren't in the order list yet
+        for filename in self.plugins:
+            if filename not in self.plugin_order:
+                self.plugin_order.append(filename)
+        
+        # Save the updated configuration
+        self.save_plugins_config()
+
+    def load_plugins_config(self):
+        """Load plugin configuration from JSON file"""
+        if self.plugins_config_path and self.plugins_config_path.exists():
+            try:
+                with open(self.plugins_config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    self.active_plugins = config.get('active_plugins', [])
+                    self.plugin_order = config.get('plugin_order', [])
+            except Exception:
+                self.active_plugins = []
+                self.plugin_order = []
+        else:
+            self.active_plugins = []
+            self.plugin_order = []
+    
+    def save_plugins_config(self):
+        """Save plugin configuration to JSON file"""
+        if self.plugins_config_path:
+            try:
+                # Ensure plugin_order reflects all known plugins if empty
+                if not self.plugin_order:
+                    self.plugin_order = sorted(list(self.plugins.keys()))
+                
+                config = {
+                    'active_plugins': self.active_plugins,
+                    'plugin_order': self.plugin_order
+                }
+                
+                # Ensure directory exists
+                if not self.plugins_config_path.parent.exists():
+                    self.plugins_config_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                with open(self.plugins_config_path, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, indent=2)
+            except Exception:
+                pass
     
     def load_plugin(self, plugin_path):
         """Load a single plugin from a file path"""
@@ -421,29 +473,6 @@ class ModernTextractorGUI:
         
         return None
     
-    def load_plugins_config(self):
-        """Load plugin configuration from JSON file"""
-        if self.plugins_config_path and self.plugins_config_path.exists():
-            try:
-                with open(self.plugins_config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                    self.active_plugins = config.get('active_plugins', [])
-            except Exception:
-                self.active_plugins = []
-        else:
-            self.active_plugins = []
-    
-    def save_plugins_config(self):
-        """Save plugin configuration to JSON file"""
-        if self.plugins_config_path:
-            try:
-                config = {
-                    'active_plugins': self.active_plugins
-                }
-                with open(self.plugins_config_path, 'w', encoding='utf-8') as f:
-                    json.dump(config, f, indent=2)
-            except Exception:
-                pass
     
     def activate_plugin(self, plugin_filename):
         """Activate a plugin"""
@@ -475,8 +504,11 @@ class ModernTextractorGUI:
         
         current_text = text
         
-        # Iterate over a copy of active_plugins to avoid thread safety issues
-        for plugin_filename in list(self.active_plugins):
+        # Determine execution order: plugin_order filtered by active state
+        execution_order = [p for p in self.plugin_order if p in self.active_plugins]
+        
+        # Iterate over the execution order
+        for plugin_filename in execution_order:
             if plugin_filename in self.plugins:
                 plugin = self.plugins[plugin_filename]
                 if plugin.enabled:
@@ -515,14 +547,23 @@ class ModernTextractorGUI:
         if hasattr(self, 'plugins_tree'):
             self.plugins_tree.delete(*self.plugins_tree.get_children())
             
-            for filename, plugin in self.plugins.items():
-                status = "✓ Active" if filename in self.active_plugins else "○ Inactive"
-                self.plugins_tree.insert('', tk.END, values=(
-                    status,
-                    plugin.name,
-                    plugin.version,
-                    plugin.description[:50] + "..." if len(plugin.description) > 50 else plugin.description
-                ), tags=('active' if filename in self.active_plugins else 'inactive',))
+            # Ensure all loaded plugins are in plugin_order
+            for filename in self.plugins:
+                if filename not in self.plugin_order:
+                    self.plugin_order.append(filename)
+            
+            # Display plugins in the order defined by plugin_order
+            for filename in self.plugin_order:
+                if filename in self.plugins:
+                    plugin = self.plugins[filename]
+                    status = "✓ Active" if filename in self.active_plugins else "○ Inactive"
+                    # We store the filename in the text attribute (hidden ID) for tracking
+                    self.plugins_tree.insert('', tk.END, text=filename, values=(
+                        status,
+                        plugin.name,
+                        plugin.version,
+                        plugin.description[:50] + "..." if len(plugin.description) > 50 else plugin.description
+                    ), tags=('active' if filename in self.active_plugins else 'inactive',))
         
         # Update count label
         if hasattr(self, 'plugins_count_label'):
@@ -624,10 +665,17 @@ class ModernTextractorGUI:
                     # Remove from plugins dict
                     del self.plugins[plugin_filename]
                     
+                    # Remove from plugin_order
+                    if plugin_filename in self.plugin_order:
+                        self.plugin_order.remove(plugin_filename)
+                    
                     # Delete the file
                     plugin_path = self.plugins_folder / plugin_filename
                     if plugin_path.exists():
                         plugin_path.unlink()
+                    
+                    # Save the updated configuration
+                    self.save_plugins_config()
                     
                     self.refresh_plugins_list()
                     messagebox.showinfo("Success", f"Plugin '{plugin_name}' has been removed.")
@@ -1118,8 +1166,55 @@ class ModernTextractorGUI:
         # Enable double-click to toggle plugin
         self.plugins_tree.bind('<Double-Button-1>', lambda e: self.toggle_selected_plugin())
         
+        # Enable Drag and Drop for reordering
+        self.plugins_tree.bind('<ButtonPress-1>', self.on_plugin_drag_start)
+        self.plugins_tree.bind('<B1-Motion>', self.on_plugin_drag_motion)
+        self.plugins_tree.bind('<ButtonRelease-1>', self.on_plugin_drag_release)
+        
         # Populate the plugins list
         self.refresh_plugins_list()
+    
+    def on_plugin_drag_start(self, event):
+        """Handle start of plugin drag"""
+        item = self.plugins_tree.identify_row(event.y)
+        if item:
+            self.drag_start_item = item
+            
+    def on_plugin_drag_motion(self, event):
+        """Handle feedback during plugin drag"""
+        # Just ensure we track the drag
+        pass
+    
+    def on_plugin_drag_release(self, event):
+        """Handle end of plugin drag (drop)"""
+        if not hasattr(self, 'drag_start_item') or not self.drag_start_item:
+            return
+            
+        target_item = self.plugins_tree.identify_row(event.y)
+        if target_item and target_item != self.drag_start_item:
+            try:
+                # Get index of target
+                target_index = self.plugins_tree.index(target_item)
+                
+                # Move item to the target index
+                self.plugins_tree.move(self.drag_start_item, '', target_index)
+                
+                # Update plugin_order based on the new visual order
+                new_order = []
+                for item in self.plugins_tree.get_children():
+                    # Get filename from hidden text attribute
+                    filename = self.plugins_tree.item(item, 'text')
+                    if filename:
+                        new_order.append(filename)
+                
+                # Update stored order
+                self.plugin_order = new_order
+                self.save_plugins_config()
+                
+            except Exception:
+                pass
+                
+        self.drag_start_item = None
     
     def reload_plugins(self):
         """Reload all plugins from the plugins folder"""
@@ -2014,6 +2109,9 @@ For more information, refer to the Textractor documentation.
     
     def on_window_close(self):
         """Handle window close button"""
+        # Save configuration on close
+        self.save_plugins_config()
+        
         if TRAY_AVAILABLE:
             self.hide_to_tray()
         else:
@@ -2021,6 +2119,9 @@ For more information, refer to the Textractor documentation.
     
     def quit_app(self, icon=None, item=None):
         """Completely quit the application"""
+        # Save configuration on exit
+        self.save_plugins_config()
+        
         if self.cli_process:
             self.detach_process()
         if TRAY_AVAILABLE and self.tray_icon:
@@ -2077,6 +2178,9 @@ For more information, refer to the Textractor documentation.
     
     def on_closing(self):
         """Handle window closing"""
+        # Save configuration on close
+        self.save_plugins_config()
+        
         if self.cli_process:
             self.detach_process()
         self.root.destroy()
