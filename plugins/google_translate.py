@@ -57,14 +57,42 @@ except Exception:
 class GoogleTranslatePlugin(TextractorPlugin):
     name = "Google Translate"
     description = "Translates text using Google Translate."
-    version = "1.1"
+    version = "1.2"
     author = "Cline"
+
+    # Available languages for translation
+    LANGUAGES = {
+        'auto': 'Auto-detect',
+        'en': 'English',
+        'ja': 'Japanese',
+        'zh-CN': 'Chinese (Simplified)',
+        'zh-TW': 'Chinese (Traditional)',
+        'ko': 'Korean',
+        'es': 'Spanish',
+        'fr': 'French',
+        'de': 'German',
+        'ru': 'Russian',
+        'it': 'Italian',
+        'pt': 'Portuguese',
+        'ar': 'Arabic',
+        'hi': 'Hindi',
+        'th': 'Thai',
+        'vi': 'Vietnamese',
+        'id': 'Indonesian',
+        'tr': 'Turkish',
+        'pl': 'Polish',
+        'nl': 'Dutch',
+        'sv': 'Swedish',
+        'da': 'Danish',
+        'no': 'Norwegian',
+        'fi': 'Finnish',
+    }
 
     def __init__(self):
         super().__init__()
         self.translator = None
-        self.target_lang = 'en' # Default to English
-        self.source_lang = 'auto'
+        self.target_lang = 'en'  # Default to English
+        self.source_lang = 'auto'  # Default to auto-detect
 
     def on_enable(self):
         if not TRANSLATOR_AVAILABLE:
@@ -92,5 +120,56 @@ class GoogleTranslatePlugin(TextractorPlugin):
                 pass
 
         return text
+
+    def get_settings(self) -> dict:
+        """Return configurable settings for the plugin"""
+        if not TRANSLATOR_AVAILABLE:
+            return {}
+        
+        # Return settings with current values
+        # Format: setting_name: (current_value, value_type, description, options)
+        # For 'choice' type, options is a dict of {value: display_name}
+        
+        # Get target languages (exclude 'auto' for target)
+        target_languages = {k: v for k, v in self.LANGUAGES.items() if k != 'auto'}
+        
+        return {
+            'source_lang': (
+                self.source_lang,
+                'choice',
+                'Source Language',
+                self.LANGUAGES
+            ),
+            'target_lang': (
+                self.target_lang,
+                'choice',
+                'Target Language',
+                target_languages
+            )
+        }
+
+    def set_setting(self, name: str, value) -> bool:
+        """Update a plugin setting"""
+        if name == 'source_lang':
+            if value in self.LANGUAGES or value == 'auto':
+                self.source_lang = value
+                # Recreate translator with new settings
+                self._recreate_translator()
+                return True
+        elif name == 'target_lang':
+            if value in self.LANGUAGES and value != 'auto':
+                self.target_lang = value
+                # Recreate translator with new settings
+                self._recreate_translator()
+                return True
+        return False
+
+    def _recreate_translator(self):
+        """Recreate the translator instance with current settings"""
+        if TRANSLATOR_AVAILABLE and self.enabled:
+            try:
+                self.translator = GoogleTranslator(source=self.source_lang, target=self.target_lang)
+            except Exception:
+                self.translator = None
 
 plugin = GoogleTranslatePlugin()

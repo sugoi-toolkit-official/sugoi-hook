@@ -111,6 +111,7 @@ class ModernTextractorGUI:
         self.plugin_order = []  # List of all plugin filenames in display/execution order
         self.plugins_config_path = None  # Set after base_path
         self.plugins_folder = None  # Set after base_path
+        self.plugin_settings = {}  # Dictionary of plugin settings: {filename: {setting_name: value}}
         
         # Auto-copy settings - enabled by default
         self.auto_copy_enabled = tk.BooleanVar(value=True)
@@ -227,21 +228,39 @@ class ModernTextractorGUI:
             self.plugins_folder = self.app_path / "plugins"
         self.plugins_config_path = self.app_path / "plugins_config.json"
         
-        self.cli_x86_path = self.base_path / "builds" / "_x86" / "TextractorCLI.exe"
-        self.cli_x64_path = self.base_path / "builds" / "_x64" / "TextractorCLI.exe"
+        # Textractor paths
+        self.textractor_x86_path = self.base_path / "textractor_builds" / "_x86" / "TextractorCLI.exe"
+        self.textractor_x64_path = self.base_path / "textractor_builds" / "_x64" / "TextractorCLI.exe"
+        
+        # Luna Hook paths
+        self.luna_x86_path = self.base_path / "luna_builds" / "LunaHostCLI32.exe"
+        self.luna_x64_path = self.base_path / "luna_builds" / "LunaHostCLI64.exe"
+        
         self.logo_path = self.base_path / "logo.webp"
+        
+        # Engine selection - Luna as default
+        self.current_engine = "luna"
         
         # Initialize plugin system
         self.init_plugin_system()
         
-        # Check if CLI executables exist
-        if not self.cli_x86_path.exists() and not self.cli_x64_path.exists():
+        # Check if CLI executables exist for both engines
+        textractor_exists = self.textractor_x86_path.exists() or self.textractor_x64_path.exists()
+        luna_exists = self.luna_x86_path.exists() or self.luna_x64_path.exists()
+        
+        if not textractor_exists and not luna_exists:
             messagebox.showerror("Error", 
-                "TextractorCLI.exe not found!\n\n"
+                "No hook engine executables found!\n\n"
                 "Expected locations:\n"
-                f"- {self.cli_x86_path}\n"
-                f"- {self.cli_x64_path}")
+                f"Textractor: {self.textractor_x86_path} or {self.textractor_x64_path}\n"
+                f"Luna: {self.luna_x86_path} or {self.luna_x64_path}")
             sys.exit(1)
+        
+        # Set default engine based on availability
+        if not luna_exists and textractor_exists:
+            self.current_engine = "textractor"
+        elif not textractor_exists and luna_exists:
+            self.current_engine = "luna"
         
         self.setup_modern_theme()
         self.set_window_icon()
@@ -377,6 +396,14 @@ class ModernTextractorGUI:
             
             try:
                 plugin = self.load_plugin(plugin_file)
+                # Apply saved settings to the plugin
+                if plugin and plugin_file.name in self.plugin_settings:
+                    for setting_name, setting_value in self.plugin_settings[plugin_file.name].items():
+                        try:
+                            plugin.set_setting(setting_name, setting_value)
+                        except Exception:
+                            pass
+                
                 # If this plugin was previously active, enable it
                 if plugin and plugin_file.name in self.active_plugins:
                     plugin.enabled = True
@@ -406,12 +433,15 @@ class ModernTextractorGUI:
                     config = json.load(f)
                     self.active_plugins = config.get('active_plugins', [])
                     self.plugin_order = config.get('plugin_order', [])
+                    self.plugin_settings = config.get('plugin_settings', {})
             except Exception:
                 self.active_plugins = []
                 self.plugin_order = []
+                self.plugin_settings = {}
         else:
             self.active_plugins = []
             self.plugin_order = []
+            self.plugin_settings = {}
     
     def save_plugins_config(self):
         """Save plugin configuration to JSON file"""
@@ -423,7 +453,8 @@ class ModernTextractorGUI:
                 
                 config = {
                     'active_plugins': self.active_plugins,
-                    'plugin_order': self.plugin_order
+                    'plugin_order': self.plugin_order,
+                    'plugin_settings': self.plugin_settings
                 }
                 
                 # Ensure directory exists
@@ -682,6 +713,192 @@ class ModernTextractorGUI:
                     
                 except Exception as e:
                     messagebox.showerror("Error", f"Failed to remove plugin:\n{str(e)}")
+    
+    def show_plugin_context_menu(self, event):
+        """Show context menu for plugin with configure option"""
+        # Select the item under cursor
+        item = self.plugins_tree.identify_row(event.y)
+        if item:
+            self.plugins_tree.selection_set(item)
+            
+            # Get plugin info
+            item_data = self.plugins_tree.item(item)
+            plugin_name = item_data['values'][1]
+            
+            # Find the plugin filename
+            plugin_filename = None
+            for filename, plugin in self.plugins.items():
+                if plugin.name == plugin_name:
+                    plugin_filename = filename
+                    break
+            
+            if not plugin_filename:
+                return
+            
+            # Check if plugin has settings
+            plugin = self.plugins[plugin_filename]
+            has_settings = bool(plugin.get_settings())
+            
+            # Create context menu
+            menu = tk.Menu(self.root, tearoff=0, bg=self.colors['surface'], fg=self.colors['fg'])
+            
+            # Toggle active/inactive
+            if plugin_filename in self.active_plugins:
+                menu.add_command(label="✓ Deactivate", command=self.toggle_selected_plugin)
+            else:
+                menu.add_command(label="○ Activate", command=self.toggle_selected_plugin)
+            
+            # Configure option (only if plugin has settings)
+            if has_settings:
+                menu.add_separator()
+                menu.add_command(label="⚙️ Configure", command=self.configure_selected_plugin)
+            
+            # Show menu at cursor position
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
+    
+    def configure_selected_plugin(self):
+        """Open configuration dialog for selected plugin"""
+        selection = self.plugins_tree.selection()
+        if not selection:
+            return
+        
+        item = self.plugins_tree.item(selection[0])
+        plugin_name = item['values'][1]
+        
+        # Find the plugin filename
+        plugin_filename = None
+        for filename, plugin in self.plugins.items():
+            if plugin.name == plugin_name:
+                plugin_filename = filename
+                break
+        
+        if not plugin_filename:
+            return
+        
+        plugin = self.plugins[plugin_filename]
+        settings = plugin.get_settings()
+        
+        if not settings:
+            messagebox.showinfo("No Settings", f"Plugin '{plugin_name}' has no configurable settings.")
+            return
+        
+        # Create settings dialog
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"Configure {plugin_name}")
+        dialog.geometry("500x400")
+        dialog.configure(bg=self.colors['bg'])
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Main frame
+        main_frame = ttk.Frame(dialog, style="Card.TFrame", padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
+        
+        # Title
+        ttk.Label(main_frame, text=f"⚙️ {plugin_name} Settings", 
+                 font=('Segoe UI', 14, 'bold'),
+                 foreground=self.colors['primary']).pack(pady=(0, 15))
+        
+        # Settings widgets
+        setting_widgets = {}
+        
+        for setting_name, setting_info in settings.items():
+            current_value, value_type, description, *options = setting_info
+            options = options[0] if options else None
+            
+            # Setting frame
+            setting_frame = ttk.Frame(main_frame)
+            setting_frame.pack(fill=tk.X, pady=10)
+            
+            # Label
+            ttk.Label(setting_frame, text=description + ":", 
+                     font=('Segoe UI', 10)).pack(anchor=tk.W, pady=(0, 5))
+            
+            # Widget based on type
+            if value_type == 'choice' and options:
+                # Dropdown
+                var = tk.StringVar(value=current_value)
+                combo = ttk.Combobox(setting_frame, textvariable=var, state='readonly')
+                
+                # Set display values
+                display_values = [options.get(key, key) for key in options.keys()]
+                combo['values'] = display_values
+                
+                # Set current selection
+                if current_value in options:
+                    combo.set(options[current_value])
+                
+                combo.pack(fill=tk.X)
+                setting_widgets[setting_name] = (var, options, value_type)
+                
+            elif value_type == 'bool':
+                var = tk.BooleanVar(value=current_value)
+                check = ttk.Checkbutton(setting_frame, variable=var)
+                check.pack(anchor=tk.W)
+                setting_widgets[setting_name] = (var, None, value_type)
+                
+            elif value_type == 'int':
+                var = tk.IntVar(value=current_value)
+                entry = ttk.Entry(setting_frame, textvariable=var)
+                entry.pack(fill=tk.X)
+                setting_widgets[setting_name] = (var, None, value_type)
+                
+            else:  # str
+                var = tk.StringVar(value=current_value)
+                entry = ttk.Entry(setting_frame, textvariable=var)
+                entry.pack(fill=tk.X)
+                setting_widgets[setting_name] = (var, None, value_type)
+        
+        # Buttons frame
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(fill=tk.X, pady=(20, 0))
+        
+        def save_settings():
+            """Save the settings"""
+            # Ensure plugin_settings dict has entry for this plugin
+            if plugin_filename not in self.plugin_settings:
+                self.plugin_settings[plugin_filename] = {}
+            
+            for setting_name, (var, options, value_type) in setting_widgets.items():
+                if value_type == 'choice' and options:
+                    # Reverse lookup: get key from display value
+                    display_value = var.get()
+                    actual_value = None
+                    for key, display in options.items():
+                        if display == display_value:
+                            actual_value = key
+                            break
+                    if actual_value is not None:
+                        plugin.set_setting(setting_name, actual_value)
+                        self.plugin_settings[plugin_filename][setting_name] = actual_value
+                else:
+                    value = var.get()
+                    plugin.set_setting(setting_name, value)
+                    self.plugin_settings[plugin_filename][setting_name] = value
+            
+            # Save to config file
+            self.save_plugins_config()
+            
+            messagebox.showinfo("Success", "Settings saved successfully!")
+            dialog.destroy()
+        
+        def cancel():
+            """Close dialog without saving"""
+            dialog.destroy()
+        
+        ttk.Button(btn_frame, text="Save", command=save_settings,
+                  style="TButton").pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Button(btn_frame, text="Cancel", command=cancel,
+                  style="Secondary.TButton").pack(side=tk.LEFT)
+        
+        # Center the dialog
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
+        y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
     
     # ==================== END PLUGIN SYSTEM METHODS ====================
     
@@ -946,6 +1163,26 @@ class ModernTextractorGUI:
                                    foreground=self.colors['text_dim'])
         subtitle_label.pack(side=tk.LEFT, padx=(10, 0))
         
+        # Engine selection toggle
+        engine_frame = ttk.Frame(header_frame)
+        engine_frame.pack(side=tk.RIGHT)
+        
+        ttk.Label(engine_frame, text="Hook Engine:", 
+                 font=('Segoe UI', 9),
+                 foreground=self.colors['text_dim']).pack(side=tk.LEFT, padx=(0, 10))
+        
+        self.engine_var = tk.StringVar(value=self.current_engine)
+        
+        engine_radio1 = ttk.Radiobutton(engine_frame, text="🌙 Hook 1 (Luna)", 
+                                        variable=self.engine_var, value="luna",
+                                        command=self.on_engine_change)
+        engine_radio1.pack(side=tk.LEFT, padx=(0, 10))
+        
+        engine_radio2 = ttk.Radiobutton(engine_frame, text="🔧 Hook 2 (Textractor)", 
+                                        variable=self.engine_var, value="textractor",
+                                        command=self.on_engine_change)
+        engine_radio2.pack(side=tk.LEFT)
+        
         # Content area with grid - adjusted for better space distribution
         content_frame = ttk.Frame(main_container)
         content_frame.pack(fill=tk.BOTH, expand=True)
@@ -1165,6 +1402,9 @@ class ModernTextractorGUI:
         
         # Enable double-click to toggle plugin
         self.plugins_tree.bind('<Double-Button-1>', lambda e: self.toggle_selected_plugin())
+        
+        # Enable right-click context menu
+        self.plugins_tree.bind('<Button-3>', self.show_plugin_context_menu)
         
         # Enable Drag and Drop for reordering
         self.plugins_tree.bind('<ButtonPress-1>', self.on_plugin_drag_start)
@@ -1471,9 +1711,15 @@ class ModernTextractorGUI:
         item = self.process_tree.item(selection[0])
         pid, arch, name = item['values']
         
-        cli_path = self.cli_x86_path if arch == "x86" else self.cli_x64_path
-        if not cli_path.exists():
-            cli_path = self.cli_x86_path
+        # Select CLI path based on current engine
+        if self.engine_var.get() == "luna":
+            cli_path = self.luna_x86_path if arch == "x86" else self.luna_x64_path
+            if not cli_path.exists():
+                cli_path = self.luna_x86_path
+        else:  # textractor
+            cli_path = self.textractor_x86_path if arch == "x86" else self.textractor_x64_path
+            if not cli_path.exists():
+                cli_path = self.textractor_x86_path
         
         try:
             # Get the directory containing the CLI executable
@@ -1686,8 +1932,34 @@ For more information, refer to the Textractor documentation.
         y = (help_window.winfo_screenheight() // 2) - (help_window.winfo_height() // 2)
         help_window.geometry(f"+{x}+{y}")
     
+    def on_engine_change(self):
+        """Handle engine toggle change"""
+        if self.attached_pid:
+            # Warn user about switching engines while attached
+            result = messagebox.askyesno(
+                "Switch Engine?",
+                f"Switching engines will detach the current process.\n\n"
+                f"Continue?"
+            )
+            if result:
+                self.detach_process()
+            else:
+                # Revert toggle to previous engine
+                self.engine_var.set(self.current_engine)
+                return
+        
+        # Update current engine
+        self.current_engine = self.engine_var.get()
+    
     def read_cli_output(self):
-        """Read output from CLI process"""
+        """Read output from CLI process with engine-specific parsing"""
+        if self.engine_var.get() == "luna":
+            self.read_luna_output()
+        else:
+            self.read_textractor_output()
+    
+    def read_textractor_output(self):
+        """Read and parse Textractor CLI output"""
         pattern = re.compile(r'^\[(\d+):([^:]+):([^:]+):([^:]+):([^:]+):([^:]+):([^\]]+)\] (.*)$')
         console_pattern = re.compile(r'^\[Console\] (.+)$')
         
@@ -1742,6 +2014,73 @@ For more information, refer to the Textractor documentation.
                     elif not self.selected_hook_id:
                         # Process text through plugins in background thread
                         processed_text = self.process_text_through_plugins(f"[Hook {hook_id}] {text}\n")
+                        if processed_text is not None:
+                            self.root.after(0, self.append_output, processed_text, False)
+                
+            except Exception:
+                break
+    
+    def read_luna_output(self):
+        """Read and parse Luna Hook CLI output"""
+        # Luna Hook CLI format: [#ID|context_info] text
+        pattern = re.compile(r'^\[#(\d+)\|([^\]]+)\] (.*)$')
+        console_pattern = re.compile(r'^\[Console\] (.+)$')
+        
+        while self.is_reading and self.cli_process:
+            try:
+                line = self.cli_process.stdout.readline()
+                if not line:
+                    break
+                
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # Check for console messages
+                console_match = console_pattern.match(line)
+                if console_match:
+                    text_to_process = f"[Console] {console_match.group(1)}\n"
+                    processed_text = self.process_text_through_plugins(text_to_process)
+                    if processed_text is not None:
+                        self.root.after(0, self.append_output, processed_text, False)
+                    continue
+                
+                # Check for hook output
+                match = pattern.match(line)
+                if match:
+                    hook_id = match.group(1)
+                    context_info = match.group(2)
+                    text = match.group(3)
+                    
+                    # Extract hook name from context (last part before .exe)
+                    context_parts = context_info.split(':')
+                    if len(context_parts) >= 2:
+                        # Try to find a meaningful name from the context
+                        thread_name = context_parts[-2] if len(context_parts) > 1 else context_parts[0]
+                    else:
+                        thread_name = "Unknown"
+                    
+                    if hook_id not in self.hooks:
+                        self.hooks[hook_id] = {
+                            'id': hook_id,
+                            'function': thread_name,
+                            'texts': []
+                        }
+                        self.root.after(0, self.add_hook_to_list, hook_id, thread_name)
+                    
+                    # Store text and update preview
+                    if len(self.hooks[hook_id]['texts']) < 3:
+                        self.hooks[hook_id]['texts'].append(text)
+                    
+                    self.root.after(0, self.update_hook_preview, hook_id, text)
+                    
+                    if self.selected_hook_id and hook_id == self.selected_hook_id:
+                        if text:
+                            processed_text = self.process_text_through_plugins(text + "\n")
+                            if processed_text is not None:
+                                self.root.after(0, self.append_output, processed_text, False)
+                    elif not self.selected_hook_id:
+                        processed_text = self.process_text_through_plugins(f"[Hook #{hook_id}] {text}\n")
                         if processed_text is not None:
                             self.root.after(0, self.append_output, processed_text, False)
                 
