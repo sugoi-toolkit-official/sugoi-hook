@@ -3,9 +3,10 @@
 # Complete Visual Novel Engine Support Guide for Sugoi Hook
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Total%20Engines-157-blueviolet?style=for-the-badge&logo=gaming" alt="Total Engines"/>
+  <img src="https://img.shields.io/badge/Total%20Engines-283-blueviolet?style=for-the-badge&logo=gaming" alt="Total Engines"/>
   <img src="https://img.shields.io/badge/Textractor-93%20Engines-blue?style=for-the-badge" alt="Textractor"/>
   <img src="https://img.shields.io/badge/Sugoi Hook-64%20Additional%20Engines-green?style=for-the-badge" alt="SugoiHook"/>
+  <img src="https://img.shields.io/badge/Luna Hook-126%20Additional%20Engines-pink?style=for-the-badge" alt="LunaHook"/>
 </p>
 
 
@@ -231,26 +232,182 @@
 
 ---
 
+## <span style="color: #E91E63;">Additional Engines Supported by Luna Hook</span>
+
+<div style="background: linear-gradient(135deg, #ec008c 0%, #fc6767 100%); padding: 20px; border-radius: 10px; margin: 15px 0;">
+<h3 style="color: white; text-align: center; margin: 0;">126 Additional Engines</h3>
+</div>
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### **Engines (A-O)**
+
+158. **ACTGS**
+159. **ADVSystem**
+160. **AGES7**
+161. **AGE_System**
+162. **AIL**
+163. **AXL**
+164. **Abalone**
+165. **AbogadoPowers**
+166. **Ages3ResT**
+167. **Aksys**
+168. **AksysGames**
+169. **AniSeed**
+170. **Anisetta**
+171. **Arcturus**
+172. **Aromarie**
+173. **BKEngine**
+174. **Broccoli**
+175. **BunBun**
+176. **Cage**
+177. **Chunsoft**
+178. **Ciel**
+179. **CisLugI**
+180. **CoffeeMaker**
+181. **DAC**
+182. **DISCOVERY**
+183. **Diskdream**
+184. **EntisGLS**
+185. **Erogos**
+186. **FVP**
+187. **Fizz**
+188. **Footy2**
+189. **For**
+190. **FrontWing**
+191. **GASTRO**
+192. **GJ**
+193. **GROOVER**
+194. **GSX**
+195. **Giga**
+196. **HXP**
+197. **H_do_C**
+198. **Hug**
+199. **Interheart**
+200. **Interlude**
+201. **Jellyfish**
+202. **Jisatu101**
+203. **Kincaid**
+204. **LCScript**
+205. **LizardFactory**
+206. **Lua**
+207. **MKXPZ**
+208. **MerRouge**
+209. **MixwillSoft**
+210. **Moonstone**
+211. **NNNConfig**
+212. **NUGSystem**
+213. **Nekotaro**
+214. **Nijyuei**
+215. **Nitroplus2**
+216. **ONScripterru**
+217. **OVERDRIVE**
+218. **Ohgetsu**
+219. **Onscripter**
+220. **Overflow**
+
+</td>
+<td width="50%" valign="top">
+
+### **Engines (P-Z)**
+
+221. **Palette**
+222. **Pinpai**
+223. **PixelGameMakerMVplayer**
+224. **Purple**
+225. **R11**
+226. **RPCS3**
+227. **RPGMaker**
+228. **RPGMakerRGSS3**
+229. **RScript**
+230. **RUNE**
+231. **Regista**
+232. **Ruf**
+233. **Ryujinx**
+234. **SRPGStudio**
+235. **Sakuradog**
+236. **Sceplay**
+237. **ScrPlayer**
+238. **SmartAdv**
+239. **Speed**
+240. **Sprite**
+241. **Stronger**
+242. **Suika2**
+243. **System4x**
+244. **T2U**
+245. **TACTICS**
+246. **TAKUYO**
+247. **TSSystem**
+248. **TYPEMOON**
+249. **TamaokaSoft**
+250. **Tarte**
+251. **TeethingRing**
+252. **TerraLunar**
+253. **Tomato**
+254. **Troy**
+255. **UnisonShift**
+256. **UnknownEngine**
+257. **UnrealEngine**
+258. **VALKYRIA**
+259. **VanillawareGC**
+260. **Vita3K**
+261. **VitaminSoft**
+262. **Winters**
+263. **XUSE**
+264. **Xbangbang**
+265. **YOX**
+266. **Yatagarasu**
+267. **Yuzu**
+268. **akatombo**
+269. **antique**
+270. **cef**
+271. **e_Erekiteru**
+272. **jukujojidai**
+273. **littlecheese**
+274. **livecaptions**
+275. **mirage**
+276. **morning**
+277. **ransel**
+278. **sakusesu**
+279. **shyakunage**
+280. **solfasys**
+281. **splushwave**
+282. **tamasoft**
+283. **utawarerumono**
+
+</td>
+</tr>
+</table>
+
+---
+
 <div align="center">
 
 ## Statistics & Overview
 
 <table>
 <tr>
-<td align="center" width="33%">
+<td align="center" width="25%">
 <h3>Total Engines</h3>
-<h1 style="color: #8B5CF6; margin: 10px 0;">157</h1>
+<h1 style="color: #8B5CF6; margin: 10px 0;">283</h1>
 <p>Unique game engines supported by Sugoi Hook</p>
 </td>
-<td align="center" width="33%">
+<td align="center" width="25%">
 <h3>Textractor</h3>
 <h1 style="color: #4A90E2; margin: 10px 0;">93</h1>
 <p>Core engine support</p>
 </td>
-<td align="center" width="33%">
+<td align="center" width="25%">
 <h3>Sugoi Hook</h3>
 <h1 style="color: #27AE60; margin: 10px 0;">64</h1>
 <p>Extended hook support</p>
+</td>
+<td align="center" width="25%">
+<h3>Luna Hook</h3>
+<h1 style="color: #E91E63; margin: 10px 0;">126</h1>
+<p>Additional hook support</p>
 </td>
 </tr>
 </table>

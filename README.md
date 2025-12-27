@@ -1,6 +1,6 @@
 # Sugoi Hook - Modern Text Extraction GUI
 
-A beautiful and user-friendly GUI wrapper for Textractor CLI, designed for extracting text from games and applications in real-time.
+A beautiful and user-friendly GUI with **dual-engine support** for both **Textractor** and **Luna Hook**, designed for extracting text from games and applications in real-time.
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
@@ -8,7 +8,23 @@ A beautiful and user-friendly GUI wrapper for Textractor CLI, designed for extra
 
 ## Features
 
+### Dual-Engine Support
+Sugoi Hook now supports **two powerful hooking engines** that you can switch between seamlessly:
+
+- **Luna Hook (Default)**: Advanced hooking engine with robust compatibility
+  - Excellent support for modern games and applications
+  - Enhanced text extraction capabilities
+  - Built on LunaTranslator's proven hooking technology
+  
+- **Textractor**: Classic and reliable hooking engine
+  - Wide compatibility with legacy applications
+  - Extensive hook code library
+  - Battle-tested text extraction
+
+**Switch engines on-the-fly** using the toggle in the header - the GUI will automatically handle process detachment and re-attachment when switching engines.
+
 ### Core Functionality
+- **Dual-Engine Support**: Choose between Luna Hook and Textractor engines
 - **Process Attachment**: Attach to any running process with intelligent filtering
 - **Hook Management**: Automatic hook discovery and manual hook code support
 - **Real-time Text Extraction**: Live text capture with statistics tracking
@@ -32,6 +48,7 @@ Built-in plugins for text processing:
 - **Minimum Length Filter**: Filter text by minimum length
 - **Fix Repeated Characters**: Fix repeated character patterns in text
 - **Google Translate**: Real-time extracted text translation
+- **Translation Proxy**: Forward extracted text to Translator++ via HTTP proxy contributed by [Dream Savior on Patreon](https://www.patreon.com/cw/dreamsavior)
 - **Overlay Window**: Display extracted text as an overlay on screen (optional)
 
 **Plugin Features:**
@@ -132,6 +149,7 @@ Click the ❓ button in the GUI for complete syntax documentation.
    
    plugin = MyPlugin()
    ```
+5.  Configure plugin settings (if any) in the GUI by right-clicking the plugin and selecting "Configure".
 
 ## Architecture
 
@@ -171,21 +189,32 @@ The application uses multiple heuristics to filter processes:
 ### File Structure
 ```
 sugoi-hook/
-├── SugoiHook_gui.py          # Main application
-├── plugins/                   # Plugin system
-│   ├── __init__.py           # Plugin base class
-│   ├── remove_empty.py       # Built-in plugins
+├── SugoiHook_gui.py              # Main application with dual-engine support
+├── plugins/                       # Plugin system
+│   ├── __init__.py               # Plugin base class
+│   ├── remove_empty.py           # Built-in plugins
 │   ├── remove_duplicates.py
 │   ├── remove_special_chars.py
-│   └── min_length_filter.py
-├── Translator/                # Translation module
-│   └── deep_translator/      # Translation library
-├── builds/                    # TextractorCLI binaries
-│   ├── _x86/                 # 32-bit CLI
-│   └── _x64/                 # 64-bit CLI
-├── logo.webp                  # Application icon
-├── requirements.txt           # Python dependencies
-└── README.md                  # This file
+│   ├── min_length_filter.py
+│   ├── fix_repeated_chars.py
+│   ├── google_translate.py
+│   ├── translation_proxy.py      # External translation tool proxy
+│   └── overlay_window.py
+├── Translator/                    # Translation module
+│   └── deep_translator/          # Translation library
+├── textractor_builds/             # Textractor engine binaries
+│   ├── _x86/                     # 32-bit Textractor CLI
+│   └── _x64/                     # 64-bit Textractor CLI
+├── luna_builds/                   # Luna Hook engine binaries
+│   ├── LunaHostCLI32.exe         # 32-bit Luna Host CLI
+│   ├── LunaHostCLI64.exe         # 64-bit Luna Host CLI
+│   ├── LunaHook32.dll            # 32-bit Luna Hook library
+│   ├── LunaHook64.dll            # 64-bit Luna Hook library
+│   ├── LunaHost32.dll
+│   └── LunaHost64.dll
+├── logo.webp                      # Application icon
+├── requirements.txt               # Python dependencies
+└── README.md                      # This file
 ```
 
 ### Compilation
@@ -199,14 +228,27 @@ This will compile the application into a standalone executable using Nuitka.
 
 ## Acknowledgments
 
-This project is built on top of [Textractor](https://github.com/Chenx221/Textractor), a modified version of the original Textractor by Artikash. We are grateful for their contribution to the text extraction community.
+Sugoi Hook is built on the foundation of powerful open-source text hooking technologies and community contributions. We are deeply grateful to the following projects and contributors:
 
-**Textractor** is a powerful text hooking tool that enables real-time text extraction from games and applications. Sugoi Hook provides a modern, user-friendly interface to make Textractor more accessible.
+### Hooking Engines
 
-### Credits
+#### Textractor
+This project integrates [Textractor](https://github.com/Chenx221/Textractor), a modified version of the original Textractor by Artikash. **Textractor** is a powerful and battle-tested text hooking tool that enables real-time text extraction from games and applications.
+
 - **Original Textractor**: [Artikash/Textractor](https://github.com/Artikash/Textractor)
 - **Modified Textractor**: [Chenx221/Textractor](https://github.com/Chenx221/Textractor)
-- **Sugoi Hook GUI**: Modern interface and plugin system
+
+#### Luna Hook
+Sugoi Hook integrates **Luna Hook** (LunaHook.dll) for advanced text extraction capabilities. Luna Hook is sourced from the [LunaTranslator](https://github.com/HIllya51/LunaTranslator) project, an excellent translation tool with robust hooking technology.
+
+- **Luna Hook DLLs**: Sourced from [LunaTranslator](https://github.com/HIllya51/LunaTranslator/tree/main/src/) by HIllya51
+- **LunaHostCLI**: Custom CLI interface developed by **Team Sugoi Toolkit** to integrate Luna Hook with our GUI
+
+### Development
+
+- **Sugoi Hook GUI**: Modern interface, dual-engine system, and plugin architecture developed by **Team Sugoi Toolkit**
+- **Plugin System**: Extensible architecture for community-driven text processing
+- **Dual-Engine Integration**: Seamless switching between Textractor and Luna Hook engines
 
 ## License
 
