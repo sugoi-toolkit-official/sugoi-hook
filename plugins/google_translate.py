@@ -108,6 +108,41 @@ class GoogleTranslatePlugin(TextractorPlugin):
         if not text or not text.strip():
             return text
 
+        stripped_text = text.strip()
+        
+        # Only translate when a hook is selected
+        # When no hook is selected, text is prefixed with [Hook {id}] or [Hook #{id}]
+        if stripped_text.startswith('[Hook ') or stripped_text.startswith('[Hook #'):
+            # No hook selected - return text without translation
+            return text
+        
+        # Don't translate system messages and UI elements
+        # Check for common system message patterns
+        system_keywords = (
+            'Selected Hook', 'Attached to', 'Detached', 'Waiting for', 
+            'Function:', 'Manual hook', 'Process Name', 'PID:', 
+            'Interact with', 'Hook at', 'Console'
+        )
+        
+        # Check if text contains any system keywords
+        if any(keyword in stripped_text for keyword in system_keywords):
+            return text
+        
+        # Check for lines starting with emoji/symbols (system messages)
+        if stripped_text and stripped_text[0] in '✓●○🎮🎯🔌📝⏳🔗⏹️🗑️💾🔄📂🔽':
+            return text
+        
+        # Check for lines that are console messages
+        if stripped_text.startswith('[Console]'):
+            return text
+        
+        # Don't translate lines that are mostly separator characters (more than 80% separators)
+        if len(stripped_text) > 3:
+            separator_chars = '─═━-_'
+            separator_count = sum(1 for c in stripped_text if c in separator_chars)
+            if separator_count / len(stripped_text) > 0.8:
+                return text
+
         if self.enabled and self.translator:
             try:
                 # Synchronous translation
