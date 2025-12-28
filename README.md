@@ -6,6 +6,14 @@ A beautiful and user-friendly GUI with **dual-engine support** for both **Textra
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 
+## Contact
+
+For any queries, support, or discussions, join the **Sugoi Toolkit Discord Server**:
+
+🔗 [Join Sugoi Toolkit Server](https://discord.gg/XFbWSjMHJh)
+
+---
+
 ## Features
 
 ### Dual-Engine Support
@@ -254,13 +262,6 @@ Sugoi Hook integrates **Luna Hook** (LunaHook.dll) for advanced text extraction 
 
 This project is licensed under the GPL-3.0 License - see the LICENSE file for details.
 
-## Contact
-
-For any queries, support, or discussions, join the **Sugoi Toolkit Discord Server**:
-
-🔗 [Join Sugoi Toolkit Server](https://discord.gg/XFbWSjMHJh)
-
----
 
 **Note**: This tool is designed for legitimate purposes such as translation assistance and accessibility. Please respect software licenses and terms of service when using text extraction tools.
 
