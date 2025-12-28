@@ -15,6 +15,7 @@ import sys
 import time
 import importlib.util
 import json
+import hashlib
 from pathlib import Path
 from PIL import Image, ImageTk, ImageDraw
 import win32gui
@@ -112,6 +113,13 @@ class ModernTextractorGUI:
         self.plugins_config_path = None  # Set after base_path
         self.plugins_folder = None  # Set after base_path
         self.plugin_settings = {}  # Dictionary of plugin settings: {filename: {setting_name: value}}
+        
+        # Game profiles system for auto-hook saving/loading
+        self.game_profiles = {}  # Dictionary of saved game hook profiles
+        self.game_profiles_path = None  # Set after base_path
+        self.current_game_id = None  # ID of currently attached game
+        self.auto_hook_pending = False  # Flag for pending auto-hook
+        self.auto_hook_data = None  # Saved hook data for auto-selection
         
         # Auto-copy settings - enabled by default
         self.auto_copy_enabled = tk.BooleanVar(value=True)
@@ -227,6 +235,7 @@ class ModernTextractorGUI:
             self.app_path = self.base_path
             self.plugins_folder = self.app_path / "plugins"
         self.plugins_config_path = self.app_path / "plugins_config.json"
+        self.game_profiles_path = self.app_path / "game_profiles.json"
         
         # Textractor paths
         self.textractor_x86_path = self.base_path / "textractor_builds" / "_x86" / "TextractorCLI.exe"
@@ -902,6 +911,415 @@ class ModernTextractorGUI:
     
     # ==================== END PLUGIN SYSTEM METHODS ====================
     
+    # ==================== GAME PROFILES SYSTEM METHODS ====================
+    
+    def generate_game_id(self, pid):
+        """Generate unique identifier for a game based on exe path and size"""
+        try:
+            proc = psutil.Process(pid)
+            exe_path = proc.exe()
+            exe_size = Path(exe_path).stat().st_size
+            
+            # Generate unique ID from path and size
+            unique_string = f"{exe_path}_{exe_size}"
+            game_id = hashlib.md5(unique_string.encode()).hexdigest()
+            
+            return game_id, exe_path, exe_size
+        except Exception:
+            return None, None, None
+    
+    def load_game_profiles(self):
+        """Load game profiles from JSON file"""
+        if self.game_profiles_path and self.game_profiles_path.exists():
+            try:
+                with open(self.game_profiles_path, 'r', encoding='utf-8') as f:
+                    self.game_profiles = json.load(f)
+            except Exception:
+                self.game_profiles = {}
+        else:
+            self.game_profiles = {}
+    
+    def save_game_profiles(self):
+        """Save game profiles to JSON file"""
+        if self.game_profiles_path:
+            try:
+                # Ensure directory exists
+                if not self.game_profiles_path.parent.exists():
+                    self.game_profiles_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                with open(self.game_profiles_path, 'w', encoding='utf-8') as f:
+                    json.dump(self.game_profiles, f, indent=2)
+            except Exception:
+                pass
+    
+    def save_hook_profile(self, hook_id=None, hook_code=None):
+        """Save current hook selection to game profile"""
+        if not self.current_game_id or not self.attached_pid:
+            return
+        
+        try:
+            # Get process info
+            proc = psutil.Process(self.attached_pid)
+            exe_name = proc.name()
+            exe_path = proc.exe()
+            exe_size = Path(exe_path).stat().st_size
+            arch = self.get_process_architecture(self.attached_pid)
+            
+            # Determine hook type and data
+            text_sample = ""
+            if hook_code:
+                hook_type = "manual"
+                hook_data = hook_code
+                hook_function = "Manual Hook"
+            elif hook_id and hook_id in self.hooks:
+                hook_type = "auto"
+                hook_data = hook_id
+                hook_function = self.hooks[hook_id].get('function', 'Unknown')
+                # Save text sample to help identify the correct hook later
+                texts = self.hooks[hook_id].get('texts', [])
+                if texts:
+                    # Get first non-empty text as sample
+                    for text in texts:
+                        if text and text.strip():
+                            text_sample = text.strip()[:100]  # First 100 chars
+                            break
+            else:
+                return
+            
+            # Create or update profile
+            self.game_profiles[self.current_game_id] = {
+                'exe_name': exe_name,
+                'exe_path': exe_path,
+                'exe_size': exe_size,
+                'hook_type': hook_type,
+                'hook_data': hook_data,
+                'hook_function': hook_function,
+                'text_sample': text_sample,  # Save text sample for better matching
+                'last_used': time.strftime('%Y-%m-%d %H:%M:%S'),
+                'architecture': arch,
+                'engine': self.current_engine  # Remember which engine was used
+            }
+            
+            # Save to file
+            self.save_game_profiles()
+            
+            # Show brief notification
+            self.append_output(f"💾 Hook profile saved for {exe_name}\n")
+            
+        except Exception:
+            pass
+    
+    def check_and_load_hook_profile(self):
+        """Check if game profile exists and prepare auto-hook"""
+        if not self.attached_pid:
+            return
+        
+        # Load profiles if not already loaded
+        if not self.game_profiles:
+            self.load_game_profiles()
+        
+        # Generate game ID
+        game_id, exe_path, exe_size = self.generate_game_id(self.attached_pid)
+        
+        if not game_id:
+            return
+        
+        self.current_game_id = game_id
+        
+        # Check if profile exists
+        if game_id in self.game_profiles:
+            profile = self.game_profiles[game_id]
+            
+            # Check if we need to switch engine
+            saved_engine = profile.get('engine', 'luna')
+            if saved_engine != self.current_engine:
+                self.append_output(f"🔄 Switching to {saved_engine} engine for this game...\n")
+                # Note: Need to detach and reattach with correct engine
+                # For now, just show a warning in the output
+                self.append_output(f"⚠️ This game was saved with {saved_engine} engine.\n")
+                self.append_output(f"   Currently using {self.current_engine}. Consider switching engines.\n\n")
+            
+            # Set auto-hook pending flag
+            self.auto_hook_pending = True
+            self.auto_hook_data = profile
+            
+            # Show notification
+            self.append_output(f"🔍 Found saved profile for {profile['exe_name']}\n")
+            self.append_output(f"⌛ Will auto-select hook: {profile['hook_function']}\n\n")
+    
+    def attempt_auto_hook(self):
+        """Attempt to automatically select saved hook with improved matching"""
+        if not self.auto_hook_pending or not self.auto_hook_data:
+            return
+        
+        profile = self.auto_hook_data
+        
+        try:
+            if profile['hook_type'] == 'manual':
+                # Auto-attach manual hook
+                hook_code = profile['hook_data']
+                
+                if self.cli_process and self.attached_pid:
+                    command = f"{hook_code} -P{self.attached_pid}\n"
+                    self.cli_process.stdin.write(command)
+                    self.cli_process.stdin.flush()
+                    
+                    self.append_output(f"✓ Auto-attached manual hook: {hook_code}\n\n")
+                    self.auto_hook_pending = False
+                    self.auto_hook_data = None
+                    
+            elif profile['hook_type'] == 'auto':
+                # Try to find the correct hook using multiple strategies
+                saved_hook_id = str(profile['hook_data'])
+                saved_function = profile.get('hook_function', '')
+                saved_text_sample = profile.get('text_sample', '')
+                
+                matched_hook_id = None
+                
+                # Strategy 1: Try exact hook ID match first
+                if saved_hook_id in self.hooks:
+                    # Check if there are multiple hooks with same function name
+                    hooks_with_same_function = [
+                        hid for hid, hook in self.hooks.items()
+                        if hook.get('function') == saved_function
+                    ]
+                    
+                    if len(hooks_with_same_function) == 1:
+                        # Only one hook with this function, safe to use
+                        matched_hook_id = saved_hook_id
+                    elif len(hooks_with_same_function) > 1 and saved_text_sample:
+                        # Multiple hooks with same function - use text sample matching
+                        best_match_id = None
+                        best_match_score = 0
+                        
+                        for hook_id in hooks_with_same_function:
+                            hook_texts = self.hooks[hook_id].get('texts', [])
+                            for hook_text in hook_texts:
+                                if hook_text and hook_text.strip():
+                                    # Calculate similarity (simple substring match)
+                                    text_clean = hook_text.strip()[:100]
+                                    if saved_text_sample in text_clean or text_clean in saved_text_sample:
+                                        # Strong match - text samples overlap
+                                        best_match_id = hook_id
+                                        best_match_score = 100
+                                        break
+                            if best_match_score == 100:
+                                break
+                        
+                        if best_match_id:
+                            matched_hook_id = best_match_id
+                            self.append_output(f"🎯 Matched hook by text sample (multiple hooks with same function)\n")
+                        else:
+                            # Fallback: use saved hook ID anyway
+                            matched_hook_id = saved_hook_id
+                            self.append_output(f"⚠️ Multiple hooks with same function - using saved ID\n")
+                    else:
+                        matched_hook_id = saved_hook_id
+                
+                # Strategy 2: If saved ID not found, try matching by function + text sample
+                if not matched_hook_id and saved_function:
+                    hooks_with_function = [
+                        hid for hid, hook in self.hooks.items()
+                        if hook.get('function') == saved_function
+                    ]
+                    
+                    if len(hooks_with_function) == 1:
+                        matched_hook_id = hooks_with_function[0]
+                        self.append_output(f"🔍 Matched hook by function name\n")
+                    elif len(hooks_with_function) > 1 and saved_text_sample:
+                        # Use text sample to find correct hook
+                        for hook_id in hooks_with_function:
+                            hook_texts = self.hooks[hook_id].get('texts', [])
+                            for hook_text in hook_texts:
+                                if hook_text and hook_text.strip():
+                                    text_clean = hook_text.strip()[:100]
+                                    if saved_text_sample in text_clean or text_clean in saved_text_sample:
+                                        matched_hook_id = hook_id
+                                        self.append_output(f"🎯 Matched hook by text sample\n")
+                                        break
+                            if matched_hook_id:
+                                break
+                
+                # Select the matched hook
+                if matched_hook_id and self.cli_process:
+                    try:
+                        self.cli_process.stdin.write(f"select {matched_hook_id}\n")
+                        self.cli_process.stdin.flush()
+                        
+                        self.selected_hook_id = matched_hook_id
+                        self.append_output(f"✓ Auto-selected Hook {matched_hook_id}\n")
+                        self.append_output(f"Function: {saved_function}\n")
+                        self.append_output("─" * 50 + "\n\n")
+                        
+                        self.auto_hook_pending = False
+                        self.auto_hook_data = None
+                        
+                    except Exception:
+                        pass
+                else:
+                    # Could not find matching hook
+                    self.append_output(f"⚠️ Could not find matching hook - please select manually\n\n")
+                    self.auto_hook_pending = False
+                    self.auto_hook_data = None
+                    
+        except Exception:
+            pass
+    
+    def open_profile_manager(self):
+        """Open game profile management window"""
+        # Load profiles
+        self.load_game_profiles()
+        
+        # Create profile manager window
+        manager = tk.Toplevel(self.root)
+        manager.title("💾 Manage Game Profiles")
+        manager.geometry("900x550")
+        manager.minsize(850, 500)
+        manager.configure(bg=self.colors['bg'])
+        manager.transient(self.root)
+        manager.grab_set()
+        
+        # Main container
+        container = ttk.Frame(manager, style="TFrame")
+        container.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        container.columnconfigure(0, weight=1)
+        container.rowconfigure(1, weight=1)
+        
+        # Title section
+        title_frame = ttk.Frame(container, style="Card.TFrame", padding=15)
+        title_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 15))
+        title_frame.columnconfigure(0, weight=1)
+        
+        ttk.Label(title_frame, text="💾 Saved Game Profiles", 
+                 font=('Segoe UI', 16, 'bold'),
+                 foreground=self.colors['primary']).pack()
+        
+        ttk.Label(title_frame, text=f"Total profiles: {len(self.game_profiles)}",
+                 font=('Segoe UI', 10),
+                 foreground=self.colors['text_dim']).pack(pady=(5, 0))
+        
+        # Profile list card
+        list_card = ttk.Frame(container, style="Card.TFrame", padding=15)
+        list_card.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 15))
+        list_card.columnconfigure(0, weight=1)
+        list_card.rowconfigure(0, weight=1)
+        
+        # Create treeview with better column layout
+        columns = ('game', 'engine', 'hook_type', 'hook_info', 'last_used')
+        profiles_tree = ttk.Treeview(list_card, columns=columns, show='headings', height=12)
+        
+        # Configure headings
+        profiles_tree.heading('game', text='Game')
+        profiles_tree.heading('engine', text='Engine')
+        profiles_tree.heading('hook_type', text='Type')
+        profiles_tree.heading('hook_info', text='Hook Info')
+        profiles_tree.heading('last_used', text='Last Used')
+        
+        # Configure columns with center alignment
+        profiles_tree.column('game', width=180, anchor='center')
+        profiles_tree.column('engine', width=80, anchor='center')
+        profiles_tree.column('hook_type', width=80, anchor='center')
+        profiles_tree.column('hook_info', width=280, anchor='center')
+        profiles_tree.column('last_used', width=140, anchor='center')
+        
+        scrollbar = ttk.Scrollbar(list_card, orient=tk.VERTICAL, command=profiles_tree.yview)
+        profiles_tree.configure(yscrollcommand=scrollbar.set)
+        
+        profiles_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        
+        # Populate profiles
+        for game_id, profile in self.game_profiles.items():
+            engine_name = "🌙 Luna" if profile.get('engine', 'luna') == 'luna' else "🔧 Textractor"
+            hook_type = "🔧 Manual" if profile['hook_type'] == 'manual' else "🎯 Auto"
+            hook_info = profile.get('hook_data', 'Unknown')
+            if profile['hook_type'] == 'auto':
+                hook_function = profile.get('hook_function', 'Unknown')
+                hook_info = f"ID {hook_info} - {hook_function}"
+            
+            profiles_tree.insert('', tk.END, text=game_id, values=(
+                profile['exe_name'],
+                engine_name,
+                hook_type,
+                hook_info,
+                profile.get('last_used', 'Unknown')
+            ))
+        
+        # Buttons frame - centered
+        btn_card = ttk.Frame(container, style="Card.TFrame", padding=15)
+        btn_card.grid(row=2, column=0, sticky=(tk.W, tk.E))
+        
+        # Center the buttons
+        btn_container = ttk.Frame(btn_card)
+        btn_container.pack(expand=True)
+        
+        def delete_selected():
+            """Delete selected profile"""
+            selection = profiles_tree.selection()
+            if not selection:
+                messagebox.showwarning("No Selection", "Please select a profile to delete.")
+                return
+            
+            item = profiles_tree.item(selection[0])
+            game_id = profiles_tree.item(selection[0], 'text')
+            game_name = item['values'][0]
+            
+            result = messagebox.askyesno(
+                "Confirm Deletion",
+                f"Delete profile for '{game_name}'?"
+            )
+            
+            if result:
+                del self.game_profiles[game_id]
+                self.save_game_profiles()
+                profiles_tree.delete(selection[0])
+                # Update title count
+                for widget in title_frame.winfo_children():
+                    if isinstance(widget, ttk.Label) and 'Total profiles' in str(widget.cget('text')):
+                        widget.config(text=f"Total profiles: {len(self.game_profiles)}")
+                messagebox.showinfo("Success", "Profile deleted.")
+        
+        def clear_all():
+            """Clear all profiles"""
+            if not self.game_profiles:
+                messagebox.showinfo("Info", "No profiles to clear.")
+                return
+            
+            result = messagebox.askyesno(
+                "Confirm Clear All",
+                f"Delete all {len(self.game_profiles)} profiles?\n\nThis cannot be undone."
+            )
+            
+            if result:
+                self.game_profiles = {}
+                self.save_game_profiles()
+                profiles_tree.delete(*profiles_tree.get_children())
+                # Update title count
+                for widget in title_frame.winfo_children():
+                    if isinstance(widget, ttk.Label) and 'Total profiles' in str(widget.cget('text')):
+                        widget.config(text=f"Total profiles: 0")
+                messagebox.showinfo("Success", "All profiles cleared.")
+        
+        ttk.Button(btn_container, text="🗑️ Delete Selected", 
+                  command=delete_selected,
+                  style="Secondary.TButton").pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(btn_container, text="🗑️ Clear All", 
+                  command=clear_all,
+                  style="Danger.TButton").pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(btn_container, text="✖️ Close", 
+                  command=manager.destroy,
+                  style="Secondary.TButton").pack(side=tk.LEFT, padx=5)
+        
+        # Center the window
+        manager.update_idletasks()
+        x = (manager.winfo_screenwidth() // 2) - (manager.winfo_width() // 2)
+        y = (manager.winfo_screenheight() // 2) - (manager.winfo_height() // 2)
+        manager.geometry(f"+{x}+{y}")
+    
+    # ==================== END GAME PROFILES SYSTEM METHODS ====================
+    
     def setup_modern_theme(self):
         """Create a modern custom theme"""
         style = ttk.Style()
@@ -1368,6 +1786,10 @@ class ModernTextractorGUI:
                                              foreground=self.colors['text_dim'])
         self.plugins_count_label.pack(side=tk.LEFT, padx=(0, 10))
         
+        ttk.Button(btn_frame, text="💾 Manage Profiles", 
+                  command=self.open_profile_manager,
+                  style="Secondary.TButton").pack(side=tk.LEFT, padx=(0, 5))
+        
         ttk.Button(btn_frame, text="📂 Open Folder", 
                   command=self.open_plugins_folder,
                   style="Secondary.TButton").pack(side=tk.LEFT, padx=(0, 5))
@@ -1769,6 +2191,9 @@ class ModernTextractorGUI:
             self.append_output(f"✓ Attached to {name} (PID: {pid})\n")
             self.append_output("⏳ Waiting for hooks... Interact with the application.\n\n")
             
+            # Check for saved game profile and prepare auto-hook
+            self.check_and_load_hook_profile()
+            
         except Exception as e:
             messagebox.showerror("Error", f"Failed to attach:\n{str(e)}")
             self.status_label.config(text="● Attachment failed", 
@@ -1807,6 +2232,9 @@ class ModernTextractorGUI:
             
             self.append_output(f"🔗 Manual hook attached: {hook_code}\n")
             self.append_output("⏳ Waiting for text output...\n\n")
+            
+            # Save manual hook to game profile
+            self.save_hook_profile(hook_code=hook_code)
             
             # Clear the entry field
             self.manual_hook_entry.delete(0, tk.END)
@@ -2090,6 +2518,10 @@ For more information, refer to the Textractor documentation.
     def add_hook_to_list(self, hook_id, function):
         """Add a hook to the hook list"""
         self.hook_tree.insert('', tk.END, values=(hook_id, function, "Waiting for text..."))
+        
+        # Check if we should auto-select this hook (with small delay to let hooks populate)
+        if self.auto_hook_pending:
+            self.root.after(2000, self.attempt_auto_hook)
     
     def update_hook_preview(self, hook_id, current_text=None):
         """Update the preview text for a hook"""
@@ -2146,6 +2578,9 @@ For more information, refer to the Textractor documentation.
                 for text in self.hooks[hook_id]['texts']:
                     self.append_output(f"{text}\n")
                 self.append_output("\n" + "─" * 50 + "\n\n")
+            
+            # Save this hook selection to game profile
+            self.save_hook_profile(hook_id=hook_id)
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to select hook:\n{str(e)}")

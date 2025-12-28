@@ -48,3 +48,4 @@ docs/
 
 # Config (user-specific)
 plugins_config.json
+game_profiles.json
