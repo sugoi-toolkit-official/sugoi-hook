@@ -1183,8 +1183,8 @@ class ModernTextractorGUI:
         # Create profile manager window
         manager = tk.Toplevel(self.root)
         manager.title("💾 Manage Game Profiles")
-        manager.geometry("900x550")
-        manager.minsize(850, 500)
+        manager.geometry("1500x550")
+        manager.minsize(1500, 550)
         manager.configure(bg=self.colors['bg'])
         manager.transient(self.root)
         manager.grab_set()
@@ -1772,7 +1772,11 @@ class ModernTextractorGUI:
         search_entry.bind('<FocusIn>', lambda e: search_entry.delete(0, tk.END) if search_entry.get() == "🔍 Search processes..." else None)
         
         ttk.Button(search_frame, text="🔄 Refresh", command=self.refresh_processes,
-                  style="Secondary.TButton").grid(row=0, column=1)
+                  style="Secondary.TButton").grid(row=0, column=1, padx=(0, 5))
+
+        ttk.Button(search_frame, text="💾 Game Profiles", 
+                  command=self.open_profile_manager,
+                  style="Secondary.TButton").grid(row=0, column=2)
         
         # Process list
         list_frame = ttk.Frame(card)
@@ -1908,9 +1912,6 @@ class ModernTextractorGUI:
                                              foreground=self.colors['text_dim'])
         self.plugins_count_label.pack(side=tk.LEFT, padx=(0, 10))
         
-        ttk.Button(btn_frame, text="💾 Manage Profiles", 
-                  command=self.open_profile_manager,
-                  style="Secondary.TButton").pack(side=tk.LEFT, padx=(0, 5))
         
         ttk.Button(btn_frame, text="📂 Open Folder", 
                   command=self.open_plugins_folder,
