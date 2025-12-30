@@ -1153,14 +1153,24 @@ class ModernTextractorGUI:
                         
                         self.auto_hook_pending = False
                         self.auto_hook_data = None
+                        if hasattr(self, '_auto_hook_scheduled'):
+                            delattr(self, '_auto_hook_scheduled')
                         
                     except Exception:
                         pass
                 else:
-                    # Could not find matching hook
-                    self.append_output(f"⚠️ Could not find matching hook - please select manually\n\n")
-                    self.auto_hook_pending = False
-                    self.auto_hook_data = None
+                    # Could not find matching hook - retry if attempts remain
+                    if hasattr(self, '_auto_hook_retry_count') and self._auto_hook_retry_count < 3:
+                        self._auto_hook_retry_count += 1
+                        self.append_output(f"🔄 Hook not found yet, retrying in 5 seconds... (Attempt {self._auto_hook_retry_count + 1}/4)\n")
+                        self.root.after(5000, self.attempt_auto_hook)
+                    else:
+                        # All retries exhausted
+                        self.append_output(f"⚠️ Could not find matching hook after multiple attempts - please select manually\n\n")
+                        self.auto_hook_pending = False
+                        self.auto_hook_data = None
+                        if hasattr(self, '_auto_hook_scheduled'):
+                            delattr(self, '_auto_hook_scheduled')
                     
         except Exception:
             pass
@@ -1279,6 +1289,114 @@ class ModernTextractorGUI:
                         widget.config(text=f"Total profiles: {len(self.game_profiles)}")
                 messagebox.showinfo("Success", "Profile deleted.")
         
+        def launch_game():
+            """Launch the selected game and auto-attach"""
+            selection = profiles_tree.selection()
+            if not selection:
+                messagebox.showwarning("No Selection", "Please select a profile to launch.")
+                return
+            
+            item = profiles_tree.item(selection[0])
+            game_id = profiles_tree.item(selection[0], 'text')
+            game_name = item['values'][0]
+            
+            if game_id not in self.game_profiles:
+                return
+            
+            profile = self.game_profiles[game_id]
+            exe_path = profile.get('exe_path', '')
+            saved_engine = profile.get('engine', 'luna')
+            
+            if not exe_path or not os.path.exists(exe_path):
+                messagebox.showerror("Error", 
+                    f"Game executable not found:\n{exe_path}\n\n"
+                    "The game may have been moved or uninstalled.")
+                return
+            
+            try:
+                # Switch to the saved engine if different from current
+                if saved_engine != self.current_engine:
+                    self.append_output(f"🔄 Switching to {saved_engine} engine for this game...\n")
+                    self.current_engine = saved_engine
+                    self.engine_var.set(saved_engine)
+                
+                # Close the profile manager window
+                manager.destroy()
+                
+                # Launch the game
+                subprocess.Popen([exe_path], shell=True)
+                
+                # Show notification in output
+                self.append_output(f"🚀 Launching game: {game_name}\n")
+                self.append_output("⏳ Waiting for process to start...\n\n")
+                
+                # Start a thread to monitor and auto-attach
+                def monitor_and_attach():
+                    # Wait a bit for the game to start
+                    time.sleep(3)
+                    
+                    # Try to find the process (try for up to 30 seconds)
+                    max_attempts = 30
+                    for attempt in range(max_attempts):
+                        try:
+                            # Look for process by executable path
+                            for proc in psutil.process_iter(['pid', 'exe']):
+                                try:
+                                    proc_exe = proc.info.get('exe', '')
+                                    if proc_exe and os.path.normpath(proc_exe.lower()) == os.path.normpath(exe_path.lower()):
+                                        # Found the process
+                                        pid = proc.info['pid']
+                                        
+                                        # Update UI in main thread
+                                        def attach_to_game():
+                                            # Check if already attached
+                                            if self.attached_pid:
+                                                self.append_output("⚠️ Already attached to a process. Detaching first...\n")
+                                                self.detach_process()
+                                                time.sleep(0.5)
+                                            
+                                            # Refresh process list to include the new game
+                                            self.refresh_processes()
+                                            
+                                            # Find and select the process in the tree
+                                            for tree_item in self.process_tree.get_children():
+                                                tree_values = self.process_tree.item(tree_item)['values']
+                                                if tree_values[0] == pid:
+                                                    self.process_tree.selection_set(tree_item)
+                                                    self.process_tree.see(tree_item)
+                                                    break
+                                            
+                                            # Wait a bit to ensure the UI is updated and selection is properly set
+                                            # This prevents "No Selection" errors
+                                            def perform_attach():
+                                                self.attach_process()
+                                                self.append_output(f"✓ Game launched and attached successfully!\n")
+                                                self.append_output(f"⏳ Auto-hook will be applied shortly...\n\n")
+                                            
+                                            # Delay attachment by 4 second to ensure UI is ready
+                                            self.root.after(4000, perform_attach)
+                                        
+                                        self.root.after(0, attach_to_game)
+                                        return
+                                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                                    continue
+                        except Exception:
+                            pass
+                        
+                        # Wait before next attempt
+                        time.sleep(1)
+                    
+                    # If we get here, process was not found
+                    self.root.after(0, lambda: self.append_output(
+                        "⚠️ Could not find game process after 30 seconds.\n"
+                        "   Please attach manually if the game is running.\n\n"
+                    ))
+                
+                threading.Thread(target=monitor_and_attach, daemon=True).start()
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to launch game:\n{str(e)}")
+        
         def clear_all():
             """Clear all profiles"""
             if not self.game_profiles:
@@ -1299,6 +1417,10 @@ class ModernTextractorGUI:
                     if isinstance(widget, ttk.Label) and 'Total profiles' in str(widget.cget('text')):
                         widget.config(text=f"Total profiles: 0")
                 messagebox.showinfo("Success", "All profiles cleared.")
+        
+        ttk.Button(btn_container, text="🚀 Launch Game", 
+                  command=launch_game,
+                  style="TButton").pack(side=tk.LEFT, padx=5)
         
         ttk.Button(btn_container, text="🗑️ Delete Selected", 
                   command=delete_selected,
@@ -2519,9 +2641,12 @@ For more information, refer to the Textractor documentation.
         """Add a hook to the hook list"""
         self.hook_tree.insert('', tk.END, values=(hook_id, function, "Waiting for text..."))
         
-        # Check if we should auto-select this hook (with small delay to let hooks populate)
-        if self.auto_hook_pending:
-            self.root.after(2000, self.attempt_auto_hook)
+        # Check if we should auto-select this hook (with longer delay to let all hooks populate)
+        # Some games insert many hooks before the correct one appears
+        if self.auto_hook_pending and not hasattr(self, '_auto_hook_scheduled'):
+            self._auto_hook_scheduled = True
+            self._auto_hook_retry_count = 0
+            self.root.after(8000, self.attempt_auto_hook)  # Wait 8 seconds for hooks to populate
     
     def update_hook_preview(self, hook_id, current_text=None):
         """Update the preview text for a hook"""
