@@ -120,6 +120,7 @@ class ModernTextractorGUI:
         self.current_game_id = None  # ID of currently attached game
         self.auto_hook_pending = False  # Flag for pending auto-hook
         self.auto_hook_data = None  # Saved hook data for auto-selection
+        self.silent_auto_launch = False  # Flag for silent auto-launch from profile manager
         
         # Auto-copy settings - enabled by default
         self.auto_copy_enabled = tk.BooleanVar(value=True)
@@ -1030,22 +1031,24 @@ class ModernTextractorGUI:
         if game_id in self.game_profiles:
             profile = self.game_profiles[game_id]
             
-            # Check if we need to switch engine
-            saved_engine = profile.get('engine', 'luna')
-            if saved_engine != self.current_engine:
-                self.append_output(f"🔄 Switching to {saved_engine} engine for this game...\n")
-                # Note: Need to detach and reattach with correct engine
-                # For now, just show a warning in the output
-                self.append_output(f"⚠️ This game was saved with {saved_engine} engine.\n")
-                self.append_output(f"   Currently using {self.current_engine}. Consider switching engines.\n\n")
+            # Only show messages if not in silent launch mode
+            if not self.silent_auto_launch:
+                # Check if we need to switch engine
+                saved_engine = profile.get('engine', 'luna')
+                if saved_engine != self.current_engine:
+                    self.append_output(f"🔄 Switching to {saved_engine} engine for this game...\n")
+                    # Note: Need to detach and reattach with correct engine
+                    # For now, just show a warning in the output
+                    self.append_output(f"⚠️ This game was saved with {saved_engine} engine.\n")
+                    self.append_output(f"   Currently using {self.current_engine}. Consider switching engines.\n\n")
+                
+                # Show notification
+                self.append_output(f"🔍 Found saved profile for {profile['exe_name']}\n")
+                self.append_output(f"⌛ Will auto-select hook: {profile['hook_function']}\n\n")
             
             # Set auto-hook pending flag
             self.auto_hook_pending = True
             self.auto_hook_data = profile
-            
-            # Show notification
-            self.append_output(f"🔍 Found saved profile for {profile['exe_name']}\n")
-            self.append_output(f"⌛ Will auto-select hook: {profile['hook_function']}\n\n")
     
     def attempt_auto_hook(self):
         """Attempt to automatically select saved hook with improved matching"""
@@ -1147,12 +1150,19 @@ class ModernTextractorGUI:
                         self.cli_process.stdin.flush()
                         
                         self.selected_hook_id = matched_hook_id
-                        self.append_output(f"✓ Auto-selected Hook {matched_hook_id}\n")
-                        self.append_output(f"Function: {saved_function}\n")
-                        self.append_output("─" * 50 + "\n\n")
+                        
+                        # Only show messages if not in silent launch  mode
+                        if not self.silent_auto_launch:
+                            self.append_output(f"✓ Auto-selected Hook {matched_hook_id}\n")
+                            self.append_output(f"Function: {saved_function}\n")
+                            self.append_output("─" * 50 + "\n\n")
+                        else:
+                            # Silent mode - just show brief success message
+                            self.append_output(f"✓ Game ready! Text extraction active.\n\n")
                         
                         self.auto_hook_pending = False
                         self.auto_hook_data = None
+                        self.silent_auto_launch = False  # Reset silent mode flag
                         if hasattr(self, '_auto_hook_scheduled'):
                             delattr(self, '_auto_hook_scheduled')
                         
@@ -1162,13 +1172,19 @@ class ModernTextractorGUI:
                     # Could not find matching hook - retry if attempts remain
                     if hasattr(self, '_auto_hook_retry_count') and self._auto_hook_retry_count < 3:
                         self._auto_hook_retry_count += 1
-                        self.append_output(f"🔄 Hook not found yet, retrying in 5 seconds... (Attempt {self._auto_hook_retry_count + 1}/4)\n")
+                        # Only show retry messages if not in silent mode
+                        if not self.silent_auto_launch:
+                            self.append_output(f"🔄 Hook not found yet, retrying in 5 seconds... (Attempt {self._auto_hook_retry_count + 1}/4)\n")
                         self.root.after(5000, self.attempt_auto_hook)
                     else:
                         # All retries exhausted
-                        self.append_output(f"⚠️ Could not find matching hook after multiple attempts - please select manually\n\n")
+                        if not self.silent_auto_launch:
+                            self.append_output(f"⚠️ Could not find matching hook after multiple attempts - please select manually\n\n")
+                        else:
+                            self.append_output(f"⚠️ Auto-hook failed - please select hook manually from the list above.\n\n")
                         self.auto_hook_pending = False
                         self.auto_hook_data = None
+                        self.silent_auto_launch = False  # Reset silent mode flag
                         if hasattr(self, '_auto_hook_scheduled'):
                             delattr(self, '_auto_hook_scheduled')
                     
@@ -1314,6 +1330,9 @@ class ModernTextractorGUI:
                 return
             
             try:
+                # Set silent auto-launch flag to suppress hook messages
+                self.silent_auto_launch = True
+                
                 # Switch to the saved engine if different from current
                 if saved_engine != self.current_engine:
                     self.append_output(f"🔄 Switching to {saved_engine} engine for this game...\n")
@@ -1328,7 +1347,7 @@ class ModernTextractorGUI:
                 
                 # Show notification in output
                 self.append_output(f"🚀 Launching game: {game_name}\n")
-                self.append_output("⏳ Waiting for process to start...\n\n")
+                self.append_output("⏳ Waiting for process to start and auto-hook...\n\n")
                 
                 # Start a thread to monitor and auto-attach
                 def monitor_and_attach():
@@ -2312,7 +2331,7 @@ class ModernTextractorGUI:
             threading.Thread(target=self.read_cli_output, daemon=True).start()
             
             self.append_output(f"✓ Attached to {name} (PID: {pid})\n")
-            self.append_output("⏳ Waiting for hooks... Interact with the application.\n\n")
+            self.append_output("⏳ Waiting for hooks... Please start the game and click on a dialogue.\n\n")
             
             # Check for saved game profile and prepare auto-hook
             self.check_and_load_hook_profile()
@@ -2562,7 +2581,8 @@ For more information, refer to the Textractor documentation.
                             processed_text = self.process_text_through_plugins(text + "\n")
                             if processed_text is not None:
                                 self.root.after(0, self.append_output, processed_text, False)
-                    elif not self.selected_hook_id:
+                    elif not self.selected_hook_id and not self.silent_auto_launch:
+                        # Only show hook preview if not in silent auto-launch mode
                         # Process text through plugins in background thread
                         processed_text = self.process_text_through_plugins(f"[Hook {hook_id}] {text}\n")
                         if processed_text is not None:
@@ -2630,7 +2650,8 @@ For more information, refer to the Textractor documentation.
                             processed_text = self.process_text_through_plugins(text + "\n")
                             if processed_text is not None:
                                 self.root.after(0, self.append_output, processed_text, False)
-                    elif not self.selected_hook_id:
+                    elif not self.selected_hook_id and not self.silent_auto_launch:
+                        # Only show hook preview if not in silent auto-launch mode
                         processed_text = self.process_text_through_plugins(f"[Hook #{hook_id}] {text}\n")
                         if processed_text is not None:
                             self.root.after(0, self.append_output, processed_text, False)
