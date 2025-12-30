@@ -1348,6 +1348,7 @@ class ModernTextractorGUI:
                 # Show notification in output
                 self.append_output(f"🚀 Launching game: {game_name}\n")
                 self.append_output("⏳ Waiting for process to start and auto-hook...\n\n")
+                self.append_output("⏳ Wait around 3-5 seconds after the game is launched then you should see further updates...\n\n")
                 
                 # Start a thread to monitor and auto-attach
                 def monitor_and_attach():
@@ -1390,8 +1391,9 @@ class ModernTextractorGUI:
                                             def perform_attach():
                                                 self.attach_process()
                                                 self.append_output(f"✓ Game launched and attached successfully!\n")
-                                                self.append_output(f"⏳ Auto-hook will be applied shortly...\n\n")
-                                            
+                                                self.append_output(f"⏳ Please start the game and click on a dialogue or two and wait a bit...\n\n")
+                                                self.append_output(f"⏳ Game hook will automatically be applied after that...\n\n")
+
                                             # Delay attachment by 4 second to ensure UI is ready
                                             self.root.after(4000, perform_attach)
                                         
