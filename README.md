@@ -40,10 +40,11 @@ Sugoi Hook now supports **two powerful hooking engines** that you can switch bet
 - **Modern UI**: Beautiful dark-themed interface with DPI scaling support
 
 ### Advanced Features
+- **Game Profiles**: Save hook configurations per game and auto-launch with saved settings
 - **Smart Process Filtering**: Automatically filters out system processes and bloatware
 - **Process Icons**: High-quality icon extraction for easy identification
 - **Manual Hook Codes**: Support for H-codes and R-codes with built-in syntax help
-- **Auto-copy**: Automatically copy extracted text to clipboard
+- **Auto-copy**: Automatically copy extracted text to clipboard (enabled by default, copies non-console text only)
 - **System Tray**: Minimize to tray for background operation
 - **Statistics**: Track lines, words, characters, and extraction rate
 - **Export**: Save extracted text to file
@@ -126,23 +127,50 @@ RQ@401000               # Read Unicode string at address
 
 Click the ❓ button in the GUI for complete syntax documentation.
 
+### Game Profiles
+
+Sugoi Hook automatically saves hook configurations for your games, making it easy to launch and play with a single click.
+
+1. **Automatic Profile Saving**
+   - When you attach to a game and select a hook, the configuration is automatically saved
+   - Profiles include hook type (auto/manual), hook data, function name, and engine used
+   - Each game is uniquely identified by its executable path and file size
+
+2. **Launch from Profile Manager**
+   - Click "💾 Game Profiles" to open the profile manager
+   - View all your saved game profiles with hook information and last used date
+   - Double-click a game or click "🚀 Launch Game" to auto-launch
+   - The game will start, attach automatically, and apply the saved hook
+
+3. **Browse and Launch Games**
+   - Click "📂 Browse for EXE" to manually select any executable file
+   - The GUI will launch it and auto-attach when the process starts
+   - Perfect for adding new games to your profile collection
+
 ### Plugin Management
 
 1. **Activate/Deactivate Plugins**
    - Double-click a plugin in the Plugins section to toggle it
+   - Right-click a plugin for quick access to activate/deactivate options
    - Active plugins process text in the order they appear
 
-2. **Reorder Plugins**
+2. **Configure Plugin Settings**
+   - Right-click a plugin and select "⚙️ Configure" to access its settings
+   - Plugins can have configurable options like language selection, filtering rules, or display preferences
+   - Settings are automatically saved and restored when you restart the application
+   - Not all plugins have configurable settings - this option only appears for plugins that support it
+
+3. **Reorder Plugins**
    - Drag and drop plugins in the list to change their execution order
    - The first plugin in the list is applied first, then the next, and so on
    - Plugin order is automatically saved and restored on restart
 
-3. **Add Custom Plugins**
+4. **Add Custom Plugins**
    - Click "📂 Open Folder" to access the plugins directory
    - Create a new `.py` file following the plugin template
    - Click "🔄 Refresh" to load new plugins
 
-4. **Plugin Development**
+5. **Plugin Development**
    ```python
    from plugins import TextractorPlugin
 
@@ -154,10 +182,28 @@ Click the ❓ button in the GUI for complete syntax documentation.
        def process_text(self, text: str) -> str | None:
            # Process and return text, or None to filter it out
            return text.upper()
+       
+       def get_settings(self) -> dict:
+           # Optional: provide configurable settings
+           return {
+               'my_setting': (True, 'bool', 'Enable my feature')
+           }
+       
+       def set_setting(self, name: str, value) -> bool:
+           # Optional: handle setting changes
+           if name == 'my_setting':
+               self.my_setting = value
+               return True
+           return False
    
    plugin = MyPlugin()
    ```
-5.  Configure plugin settings (if any) in the GUI by right-clicking the plugin and selecting "Configure".
+
+### Keyboard Shortcuts
+
+- `F11` - Toggle fullscreen mode
+- `Escape` - Exit fullscreen mode
+- `Double-click` - Quick actions (attach to process, select hook, toggle plugin)
 
 ## Architecture
 
