@@ -598,12 +598,18 @@ class ModernTextractorGUI:
                 if filename in self.plugins:
                     plugin = self.plugins[filename]
                     status = "✓ Active" if filename in self.active_plugins else "○ Inactive"
+                    
+                    # Check if plugin has settings to show configure button
+                    has_settings = bool(plugin.get_settings())
+                    actions = "⚙️ Configure" if has_settings else ""
+                    
                     # We store the filename in the text attribute (hidden ID) for tracking
                     self.plugins_tree.insert('', tk.END, text=filename, values=(
                         status,
                         plugin.name,
                         plugin.version,
-                        plugin.description[:50] + "..." if len(plugin.description) > 50 else plugin.description
+                        plugin.description[:50] + "..." if len(plugin.description) > 50 else plugin.description,
+                        actions
                     ), tags=('active' if filename in self.active_plugins else 'inactive',))
         
         # Update count label
@@ -1190,6 +1196,98 @@ class ModernTextractorGUI:
                     
         except Exception:
             pass
+    
+    def browse_and_attach_exe(self):
+        """Browse for an executable file and attach to it"""
+        # Open file dialog to select executable
+        exe_path = filedialog.askopenfilename(
+            title="Select Executable to Launch",
+            filetypes=[("Executable files", "*.exe"), ("All files", "*.*")],
+            initialdir=str(Path.home())
+        )
+        
+        if not exe_path:
+            return
+        
+        exe_path = Path(exe_path)
+        
+        if not exe_path.exists():
+            messagebox.showerror("Error", f"File not found:\n{exe_path}")
+            return
+        
+        try:
+            # Launch the executable
+            subprocess.Popen([str(exe_path)], shell=True)
+            
+            # Show notification in output
+            self.append_output(f"🚀 Launching: {exe_path.name}\n")
+            self.append_output("⏳ Waiting for process to start...\n\n")
+            
+            # Start a thread to monitor and auto-attach
+            def monitor_and_attach():
+                # Wait a bit for the process to start
+                time.sleep(3)
+                
+                # Try to find the process (try for up to 30 seconds)
+                max_attempts = 30
+                for attempt in range(max_attempts):
+                    try:
+                        # Look for process by executable path
+                        for proc in psutil.process_iter(['pid', 'exe']):
+                            try:
+                                proc_exe = proc.info.get('exe', '')
+                                if proc_exe and os.path.normpath(proc_exe.lower()) == os.path.normpath(str(exe_path).lower()):
+                                    # Found the process
+                                    pid = proc.info['pid']
+                                    
+                                    # Update UI in main thread
+                                    def attach_to_game():
+                                        # Check if already attached
+                                        if self.attached_pid:
+                                            self.append_output("⚠️ Already attached to a process. Detaching first...\n")
+                                            self.detach_process()
+                                            time.sleep(0.5)
+                                        
+                                        # Refresh process list to include the new game
+                                        self.refresh_processes()
+                                        
+                                        # Find and select the process in the tree
+                                        for tree_item in self.process_tree.get_children():
+                                            tree_values = self.process_tree.item(tree_item)['values']
+                                            if tree_values[0] == pid:
+                                                self.process_tree.selection_set(tree_item)
+                                                self.process_tree.see(tree_item)
+                                                break
+                                        
+                                        # Wait a bit to ensure the UI is updated and selection is properly set
+                                        def perform_attach():
+                                            self.attach_process()
+                                            self.append_output(f"✓ Process launched and attached successfully!\n")
+                                            self.append_output(f"⏳ Please interact with the application to capture text...\n\n")
+                                        
+                                        # Delay attachment by 2 seconds to ensure UI is ready
+                                        self.root.after(2000, perform_attach)
+                                    
+                                    self.root.after(0, attach_to_game)
+                                    return
+                            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                                continue
+                    except Exception:
+                        pass
+                    
+                    # Wait before next attempt
+                    time.sleep(1)
+                
+                # If we get here, process was not found
+                self.root.after(0, lambda: self.append_output(
+                    "⚠️ Could not find process after 30 seconds.\n"
+                    "   Please attach manually if the application is running.\n\n"
+                ))
+            
+            threading.Thread(target=monitor_and_attach, daemon=True).start()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to launch executable:\n{str(e)}")
     
     def open_profile_manager(self):
         """Open game profile management window"""
@@ -1795,9 +1893,13 @@ class ModernTextractorGUI:
         ttk.Button(search_frame, text="🔄 Refresh", command=self.refresh_processes,
                   style="Secondary.TButton").grid(row=0, column=1, padx=(0, 5))
 
+        ttk.Button(search_frame, text="📂 Browse for EXE", 
+                  command=self.browse_and_attach_exe,
+                  style="Secondary.TButton").grid(row=0, column=2, padx=(0, 5))
+
         ttk.Button(search_frame, text="💾 Game Profiles", 
                   command=self.open_profile_manager,
-                  style="Secondary.TButton").grid(row=0, column=2)
+                  style="Secondary.TButton").grid(row=0, column=3)
         
         # Process list
         list_frame = ttk.Frame(card)
@@ -1948,17 +2050,19 @@ class ModernTextractorGUI:
         list_frame.columnconfigure(0, weight=1)
         list_frame.rowconfigure(0, weight=1)
         
-        columns = ('status', 'name', 'version', 'description')
+        columns = ('status', 'name', 'version', 'description', 'actions')
         self.plugins_tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=3)
         self.plugins_tree.heading('status', text='Status')
         self.plugins_tree.heading('name', text='Plugin Name')
         self.plugins_tree.heading('version', text='Version')
         self.plugins_tree.heading('description', text='Description')
+        self.plugins_tree.heading('actions', text='Actions')
         
         self.plugins_tree.column('status', width=self.scale(80), minwidth=self.scale(80), anchor='center', stretch=False)
         self.plugins_tree.column('name', width=self.scale(150), minwidth=self.scale(120), anchor='center', stretch=False)
         self.plugins_tree.column('version', width=self.scale(60), minwidth=self.scale(50), anchor='center', stretch=False)
-        self.plugins_tree.column('description', width=self.scale(400), minwidth=self.scale(200), anchor='center', stretch=True)
+        self.plugins_tree.column('description', width=self.scale(350), minwidth=self.scale(180), anchor='center', stretch=True)
+        self.plugins_tree.column('actions', width=self.scale(100), minwidth=self.scale(100), anchor='center', stretch=False)
         
         scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.plugins_tree.yview)
         self.plugins_tree.configure(yscrollcommand=scrollbar.set)
@@ -1969,16 +2073,45 @@ class ModernTextractorGUI:
         # Enable double-click to toggle plugin
         self.plugins_tree.bind('<Double-Button-1>', lambda e: self.toggle_selected_plugin())
         
+        # Enable single-click on Actions column for configure button
+        self.plugins_tree.bind('<Button-1>', self.on_plugin_click)
+        
         # Enable right-click context menu
         self.plugins_tree.bind('<Button-3>', self.show_plugin_context_menu)
         
         # Enable Drag and Drop for reordering
-        self.plugins_tree.bind('<ButtonPress-1>', self.on_plugin_drag_start)
         self.plugins_tree.bind('<B1-Motion>', self.on_plugin_drag_motion)
         self.plugins_tree.bind('<ButtonRelease-1>', self.on_plugin_drag_release)
         
         # Populate the plugins list
         self.refresh_plugins_list()
+    
+    def on_plugin_click(self, event):
+        """Handle clicks on plugin tree, especially on Actions column"""
+        # Identify which item and column was clicked
+        item = self.plugins_tree.identify_row(event.y)
+        column = self.plugins_tree.identify_column(event.x)
+        
+        if not item:
+            return
+        
+        # Check if Actions column was clicked (column #5, index starts at #1)
+        if column == '#5':  # Actions column
+            # Get the item data
+            item_data = self.plugins_tree.item(item)
+            actions_text = item_data['values'][4]  # Actions is the 5th column (index 4)
+            
+            # If it has the configure button text, open configuration
+            if actions_text == "⚙️ Configure":
+                # Select the item
+                self.plugins_tree.selection_set(item)
+                # Open configuration dialog
+                self.configure_selected_plugin()
+                return "break"  # Prevent further processing
+        else:
+            # For other columns, handle drag start for reordering
+            if item:
+                self.drag_start_item = item
     
     def on_plugin_drag_start(self, event):
         """Handle start of plugin drag"""
