@@ -776,7 +776,7 @@ class ModernTextractorGUI:
                 menu.grab_release()
     
     def configure_selected_plugin(self):
-        """Open configuration dialog for selected plugin"""
+        """Open configuration dialog for selected plugin with scrollable content"""
         selection = self.plugins_tree.selection()
         if not selection:
             return
@@ -801,22 +801,55 @@ class ModernTextractorGUI:
             messagebox.showinfo("No Settings", f"Plugin '{plugin_name}' has no configurable settings.")
             return
         
-        # Create settings dialog
+        # Create settings dialog with larger size for more settings
         dialog = tk.Toplevel(self.root)
         dialog.title(f"Configure {plugin_name}")
-        dialog.geometry("500x400")
+        dialog.geometry("600x700")
         dialog.configure(bg=self.colors['bg'])
         dialog.transient(self.root)
         dialog.grab_set()
         
-        # Main frame
-        main_frame = ttk.Frame(dialog, style="Card.TFrame", padding=20)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
+        # Main container
+        container = ttk.Frame(dialog, style="TFrame")
+        container.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
         
-        # Title
-        ttk.Label(main_frame, text=f"⚙️ {plugin_name} Settings", 
+        # Title card
+        title_card = ttk.Frame(container, style="Card.TFrame", padding=15)
+        title_card.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(title_card, text=f"⚙️ {plugin_name} Settings", 
                  font=('Segoe UI', 14, 'bold'),
-                 foreground=self.colors['primary']).pack(pady=(0, 15))
+                 foreground=self.colors['primary']).pack()
+        
+        # Scrollable settings area
+        settings_card = ttk.Frame(container, style="Card.TFrame", padding=15)
+        settings_card.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        # Create canvas and scrollbar for scrollable content
+        canvas = tk.Canvas(settings_card, bg=self.colors['surface'], highlightthickness=0)
+        scrollbar = ttk.Scrollbar(settings_card, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas, style="Card.TFrame")
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=canvas.winfo_width())
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Bind canvas width to scrollable frame width
+        def configure_canvas_width(event):
+            canvas.itemconfig(canvas.find_withtag("all")[0], width=event.width)
+        canvas.bind('<Configure>', configure_canvas_width)
+        
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Enable mousewheel scrolling
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", on_mousewheel)
         
         # Settings widgets
         setting_widgets = {}
@@ -826,18 +859,84 @@ class ModernTextractorGUI:
             options = options[0] if options else None
             
             # Setting frame
-            setting_frame = ttk.Frame(main_frame)
-            setting_frame.pack(fill=tk.X, pady=10)
+            setting_frame = ttk.Frame(scrollable_frame)
+            setting_frame.pack(fill=tk.X, pady=8, padx=5)
             
             # Label
             ttk.Label(setting_frame, text=description + ":", 
-                     font=('Segoe UI', 10)).pack(anchor=tk.W, pady=(0, 5))
+                     font=('Segoe UI', 10, 'bold'),
+                     foreground=self.colors['fg']).pack(anchor=tk.W, pady=(0, 5))
             
             # Widget based on type
-            if value_type == 'choice' and options:
-                # Dropdown
+            if value_type == 'color' and options:
+                # Color dropdown with preview
+                color_frame = ttk.Frame(setting_frame)
+                color_frame.pack(fill=tk.X)
+                
                 var = tk.StringVar(value=current_value)
-                combo = ttk.Combobox(setting_frame, textvariable=var, state='readonly')
+                
+                # Create combobox with search capability
+                combo = ttk.Combobox(color_frame, textvariable=var, width=35)
+                
+                # Set display values (color + description)
+                display_values = [f"{key} - {value}" for key, value in options.items()]
+                combo['values'] = display_values
+                
+                # Set current selection
+                if current_value in options:
+                    combo.set(f"{current_value} - {options[current_value]}")
+                
+                combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+                
+                # Color preview box
+                preview_canvas = tk.Canvas(color_frame, width=40, height=25, 
+                                          bg=current_value, highlightthickness=1,
+                                          highlightbackground=self.colors['border'])
+                preview_canvas.pack(side=tk.LEFT)
+                
+                # Update preview when selection changes
+                def update_preview(event=None):
+                    selected = combo.get()
+                    if ' - ' in selected:
+                        color_code = selected.split(' - ')[0]
+                        try:
+                            preview_canvas.config(bg=color_code)
+                        except:
+                            pass
+                
+                combo.bind('<<ComboboxSelected>>', update_preview)
+                combo.bind('<KeyRelease>', update_preview)
+                
+                setting_widgets[setting_name] = (var, options, value_type)
+            
+            elif value_type == 'int_slider' and options:
+                # Slider for integer values
+                slider_frame = ttk.Frame(setting_frame)
+                slider_frame.pack(fill=tk.X)
+                
+                var = tk.IntVar(value=current_value)
+                
+                # Value label
+                value_label = ttk.Label(slider_frame, text=str(current_value), 
+                                       font=('Segoe UI', 10, 'bold'),
+                                       foreground=self.colors['primary'])
+                value_label.pack(side=tk.RIGHT, padx=(10, 0))
+                
+                # Slider
+                slider = tk.Scale(slider_frame, from_=options['min'], to=options['max'],
+                                 orient=tk.HORIZONTAL, variable=var,
+                                 bg=self.colors['surface'], fg=self.colors['fg'],
+                                 highlightthickness=0, troughcolor=self.colors['surface_light'],
+                                 activebackground=self.colors['primary'],
+                                 command=lambda v: value_label.config(text=str(int(float(v)))))
+                slider.pack(side=tk.LEFT, fill=tk.X, expand=True)
+                
+                setting_widgets[setting_name] = (var, options, value_type)
+                
+            elif value_type == 'choice' and options:
+                # Dropdown with search
+                var = tk.StringVar(value=current_value)
+                combo = ttk.Combobox(setting_frame, textvariable=var)
                 
                 # Set display values
                 display_values = [options.get(key, key) for key in options.keys()]
@@ -852,7 +951,7 @@ class ModernTextractorGUI:
                 
             elif value_type == 'bool':
                 var = tk.BooleanVar(value=current_value)
-                check = ttk.Checkbutton(setting_frame, variable=var)
+                check = ttk.Checkbutton(setting_frame, text="Enabled", variable=var)
                 check.pack(anchor=tk.W)
                 setting_widgets[setting_name] = (var, None, value_type)
                 
@@ -868,9 +967,9 @@ class ModernTextractorGUI:
                 entry.pack(fill=tk.X)
                 setting_widgets[setting_name] = (var, None, value_type)
         
-        # Buttons frame
-        btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(fill=tk.X, pady=(20, 0))
+        # Buttons frame at bottom (not scrollable)
+        btn_card = ttk.Frame(container, style="Card.TFrame", padding=15)
+        btn_card.pack(fill=tk.X)
         
         def save_settings():
             """Save the settings"""
@@ -879,14 +978,20 @@ class ModernTextractorGUI:
                 self.plugin_settings[plugin_filename] = {}
             
             for setting_name, (var, options, value_type) in setting_widgets.items():
-                if value_type == 'choice' and options:
+                if value_type in ('choice', 'color') and options:
                     # Reverse lookup: get key from display value
                     display_value = var.get()
                     actual_value = None
-                    for key, display in options.items():
-                        if display == display_value:
-                            actual_value = key
-                            break
+                    
+                    # Handle color format (code - description)
+                    if value_type == 'color' and ' - ' in display_value:
+                        actual_value = display_value.split(' - ')[0]
+                    else:
+                        for key, display in options.items():
+                            if display == display_value or key == display_value:
+                                actual_value = key
+                                break
+                    
                     if actual_value is not None:
                         plugin.set_setting(setting_name, actual_value)
                         self.plugin_settings[plugin_filename][setting_name] = actual_value
@@ -898,16 +1003,25 @@ class ModernTextractorGUI:
             # Save to config file
             self.save_plugins_config()
             
+            # Unbind mousewheel before closing
+            canvas.unbind_all("<MouseWheel>")
+            
             messagebox.showinfo("Success", "Settings saved successfully!")
             dialog.destroy()
         
         def cancel():
             """Close dialog without saving"""
+            # Unbind mousewheel before closing
+            canvas.unbind_all("<MouseWheel>")
             dialog.destroy()
         
-        ttk.Button(btn_frame, text="Save", command=save_settings,
+        # Center buttons
+        btn_container = ttk.Frame(btn_card)
+        btn_container.pack(expand=True)
+        
+        ttk.Button(btn_container, text="💾 Save Settings", command=save_settings,
                   style="TButton").pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Button(btn_frame, text="Cancel", command=cancel,
+        ttk.Button(btn_container, text="✖️ Cancel", command=cancel,
                   style="Secondary.TButton").pack(side=tk.LEFT)
         
         # Center the dialog
@@ -915,6 +1029,9 @@ class ModernTextractorGUI:
         x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
         y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
         dialog.geometry(f"+{x}+{y}")
+        
+        # Handle dialog close
+        dialog.protocol("WM_DELETE_WINDOW", cancel)
     
     # ==================== END PLUGIN SYSTEM METHODS ====================
     
