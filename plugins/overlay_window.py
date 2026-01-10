@@ -230,7 +230,7 @@ class OverlayWindowPlugin(TextractorPlugin):
             if not is_translator_enabled:
                 self.text_widget.insert(tk.END, "Please enable the translation plugin", "warning")
             else:
-                # Try to split
+                # Handle text with translation (original + translation format)
                 clean_text = text.strip()
                 parts = clean_text.split('\n')
                 
@@ -243,7 +243,7 @@ class OverlayWindowPlugin(TextractorPlugin):
                     self.text_widget.insert(tk.END, translation + "\n", "translation")
                     self.text_widget.insert(tk.END, original, "original")
                 else:
-                    # Fallback
+                    # Fallback - single line, treat as original
                     self.text_widget.insert(tk.END, clean_text, "original")
             
             self.text_widget.config(state='disabled')
