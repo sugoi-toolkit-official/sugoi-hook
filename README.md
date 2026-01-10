@@ -56,9 +56,10 @@ Built-in plugins for text processing:
 - **Remove Duplicates**: Eliminate duplicate text entries
 - **Minimum Length Filter**: Filter text by minimum length
 - **Fix Repeated Characters**: Fix repeated character patterns in text
+- **Hook Concatenation**: Combines text from multiple hooks into complete sentences. Essential when games split dialogue across hooks (e.g., character name in one hook and dialogue text in another, or first line in one hook and second line in a different hook). Intelligently merges sequential text from different hooks. For this to work effectively, ensure that NO hooks are selected and the hooks are ordered correctly in the configuration.
 - **Google Translate**: Real-time extracted text translation
 - **Translation Proxy**: Forward extracted text to Translator++ via HTTP proxy contributed by [Dream Savior on Patreon](https://www.patreon.com/cw/dreamsavior)
-- **Overlay Window**: Display extracted text as an overlay on screen (optional)
+- **Overlay Window**: Display extracted text as an overlay on screen. Fully configurable with options for font, font size, transparency, color, background, position, and more (optional)
 
 **Plugin Features:**
 - **Drag & Drop Reordering**: Reorder plugins by dragging them in the list
