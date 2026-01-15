@@ -21,9 +21,9 @@ from PIL import Image, ImageTk, ImageDraw
 import win32gui
 import win32ui
 import win32con
-import win32api
 import win32process
 import ctypes
+
 try:
     import pystray
     from pystray import MenuItem as item
@@ -31,12 +31,26 @@ try:
 except ImportError:
     TRAY_AVAILABLE = False
 
-# Import plugin base class
 try:
     from plugins import TextractorPlugin
     PLUGINS_AVAILABLE = True
 except ImportError:
     PLUGINS_AVAILABLE = False
+
+# Constants
+CREATE_NO_WINDOW = 0x08000000
+DEFAULT_DPI = 96.0
+MIN_SYSTEM_PID = 100
+ICON_SIZE = 32
+SCALED_ICON_SIZE = 24
+ICON_CORNER_RADIUS = 3
+MAX_HOOK_TEXTS = 3
+MAX_PREVIEW_LENGTH = 80
+AUTO_HOOK_INITIAL_DELAY = 8000
+AUTO_HOOK_RETRY_DELAY = 5000
+AUTO_HOOK_MAX_RETRIES = 3
+PROCESS_MONITOR_DELAY = 3000
+GAME_LAUNCH_ATTACH_DELAY = 4000
 
 class ModernTextractorGUI:
     def __init__(self, root):
@@ -81,10 +95,8 @@ class ModernTextractorGUI:
         
         # Calculate DPI scale factor
         try:
-            # Get the DPI from the window system
-            # 96 is the standard DPI (100% scaling)
             dpi = self.root.winfo_fpixels('1i')
-            self.scale_factor = dpi / 96.0
+            self.scale_factor = dpi / DEFAULT_DPI
         except Exception:
             self.scale_factor = 1.0
         
@@ -106,33 +118,27 @@ class ModernTextractorGUI:
         self.process_icons = {}
         self.is_fullscreen = False
         
-        # Plugin system (paths set after base_path is determined)
-        self.plugins = {}  # Dictionary of loaded plugins: {filename: plugin_instance}
-        self.active_plugins = []  # List of active plugin filenames
-        self.plugin_order = []  # List of all plugin filenames in display/execution order
-        self.plugins_config_path = None  # Set after base_path
-        self.plugins_folder = None  # Set after base_path
-        self.plugin_settings = {}  # Dictionary of plugin settings: {filename: {setting_name: value}}
+        # Plugin system
+        self.plugins = {}
+        self.active_plugins = []
+        self.plugin_order = []
+        self.plugins_config_path = None
+        self.plugins_folder = None
+        self.plugin_settings = {}
         
-        # Game profiles system for auto-hook saving/loading
-        self.game_profiles = {}  # Dictionary of saved game hook profiles
-        self.game_profiles_path = None  # Set after base_path
-        self.current_game_id = None  # ID of currently attached game
-        self.auto_hook_pending = False  # Flag for pending auto-hook
-        self.auto_hook_data = None  # Saved hook data for auto-selection
-        self.silent_auto_launch = False  # Flag for silent auto-launch from profile manager
+        # Game profiles system
+        self.game_profiles = {}
+        self.game_profiles_path = None
+        self.current_game_id = None
+        self.auto_hook_pending = False
+        self.auto_hook_data = None
+        self.silent_auto_launch = False
         
-        # Auto-copy settings - enabled by default
+        # Auto-copy settings
         self.auto_copy_enabled = tk.BooleanVar(value=True)
         
         # Statistics tracking
-        self.stats = {
-            'lines': 0,
-            'words': 0,
-            'chars': 0,
-            'start_time': None,
-            'last_update': time.time()
-        }
+        self.stats = {'lines': 0, 'words': 0, 'chars': 0, 'start_time': None, 'last_update': time.time()}
         
         # System tray
         self.tray_icon = None
@@ -196,56 +202,32 @@ class ModernTextractorGUI:
         }
         
         # Determine CLI paths - handle both development and compiled modes
-        # Check for both PyInstaller (frozen) and Nuitka (__compiled__)
-        # Also check for standalone executable (Nuitka onefile might not set __compiled__ on sys)
         is_frozen = getattr(sys, 'frozen', False)
         is_nuitka = getattr(sys, '__compiled__', False) or (
             sys.executable.lower().endswith('.exe') and 
             'python' not in os.path.basename(sys.executable).lower()
         )
-        
         is_compiled = is_frozen or is_nuitka
         
+        # Set base paths based on compilation mode
         if is_compiled:
-            # Running as compiled executable
-            if is_frozen:
-                # PyInstaller mode
-                self.base_path = Path(sys._MEIPASS)
-                self.app_path = Path(sys.executable).parent
-            else:
-                # Nuitka mode - onefile unpacks assets to temp directory
-                self.base_path = Path(__file__).parent
-                self.app_path = Path(sys.executable).parent
-            
-            # Use user_data_dir as the directory where the executable is located
+            self.base_path = Path(sys._MEIPASS) if is_frozen else Path(__file__).parent
+            self.app_path = Path(sys.executable).parent
             self.user_data_dir = self.app_path
-            self.plugins_folder = self.user_data_dir / "plugins"
-            self.plugins_config_path = self.user_data_dir / "plugins_config.json"
-            
-            # Ensure user data directory exists
             self.user_data_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Do not copy bundled plugins or translator to Documents
-            # Instead, rely on them being present next to the executable
-            # self.copy_bundled_plugins()
-            # self.copy_bundled_translator()
-            
         else:
-            # Running as Python script
-            self.base_path = Path(__file__).parent
-            self.app_path = self.base_path
-            self.plugins_folder = self.app_path / "plugins"
+            self.base_path = self.app_path = Path(__file__).parent
+        
+        # Configure plugin and profile paths
+        self.plugins_folder = self.app_path / "plugins"
         self.plugins_config_path = self.app_path / "plugins_config.json"
         self.game_profiles_path = self.app_path / "game_profiles.json"
         
-        # Textractor paths
+        # Engine executable paths
         self.textractor_x86_path = self.base_path / "textractor_builds" / "_x86" / "TextractorCLI.exe"
         self.textractor_x64_path = self.base_path / "textractor_builds" / "_x64" / "TextractorCLI.exe"
-        
-        # Luna Hook paths
         self.luna_x86_path = self.base_path / "luna_builds" / "LunaHostCLI32.exe"
         self.luna_x64_path = self.base_path / "luna_builds" / "LunaHostCLI64.exe"
-        
         self.logo_path = self.base_path / "logo.webp"
         
         # Engine selection - Luna as default
@@ -288,91 +270,6 @@ class ModernTextractorGUI:
     def scale(self, value):
         """Scale a value based on DPI"""
         return int(value * self.scale_factor)
-
-    def copy_bundled_plugins(self):
-        """Copy bundled plugins to the user's documents folder"""
-        try:
-            # Find bundled plugins folder
-            bundled_plugins_path = self.base_path / "plugins"
-            
-            if not bundled_plugins_path.exists():
-                bundled_plugins_path = self.app_path / "plugins"
-            
-            if not bundled_plugins_path.exists():
-                return
-
-            # Create destination folder
-            self.plugins_folder.mkdir(parents=True, exist_ok=True)
-            
-            # Copy each plugin file
-            import shutil
-            for plugin_file in bundled_plugins_path.glob("*.py"):
-                if plugin_file.name.startswith("_"):
-                    continue
-                    
-                dest_file = self.plugins_folder / plugin_file.name
-                
-                # Only copy if it doesn't exist to avoid overwriting user changes
-                if not dest_file.exists():
-                    try:
-                        shutil.copy2(plugin_file, dest_file)
-                    except Exception:
-                        pass
-                        
-        except Exception:
-            pass
-
-    def copy_bundled_translator(self):
-        """Copy bundled Translator folder to the user's documents folder"""
-        try:
-            import shutil
-            
-            # Find bundled Translator folder - look next to the executable first
-            bundled_translator_path = self.app_path / "Translator"
-            
-            # If not found next to exe, try base_path (for bundled resources)
-            if not bundled_translator_path.exists():
-                bundled_translator_path = self.base_path / "Translator"
-            
-            if not bundled_translator_path.exists():
-                return
-
-            # Destination folder
-            dest_translator_path = self.user_data_dir / "Translator"
-            
-            # Create destination folder if it doesn't exist
-            dest_translator_path.mkdir(parents=True, exist_ok=True)
-            
-            # Recursively copy all files and directories
-            self._copy_directory_contents(bundled_translator_path, dest_translator_path)
-                        
-        except Exception:
-            pass
-    
-    def _copy_directory_contents(self, src_dir, dest_dir):
-        """Recursively copy directory contents, only copying files that don't exist"""
-        import shutil
-        
-        try:
-            # Ensure destination directory exists
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Iterate through all items in source directory
-            for item in src_dir.iterdir():
-                dest_item = dest_dir / item.name
-                
-                if item.is_dir():
-                    # Recursively copy subdirectory
-                    self._copy_directory_contents(item, dest_item)
-                elif item.is_file():
-                    # Only copy if file doesn't exist to avoid overwriting user changes
-                    if not dest_item.exists():
-                        try:
-                            shutil.copy2(item, dest_item)
-                        except Exception:
-                            pass
-        except Exception:
-            pass
 
     # ==================== PLUGIN SYSTEM METHODS ====================
     
@@ -437,6 +334,10 @@ class ModernTextractorGUI:
 
     def load_plugins_config(self):
         """Load plugin configuration from JSON file"""
+        self.active_plugins = []
+        self.plugin_order = []
+        self.plugin_settings = {}
+        
         if self.plugins_config_path and self.plugins_config_path.exists():
             try:
                 with open(self.plugins_config_path, 'r', encoding='utf-8') as f:
@@ -445,13 +346,7 @@ class ModernTextractorGUI:
                     self.plugin_order = config.get('plugin_order', [])
                     self.plugin_settings = config.get('plugin_settings', {})
             except Exception:
-                self.active_plugins = []
-                self.plugin_order = []
-                self.plugin_settings = {}
-        else:
-            self.active_plugins = []
-            self.plugin_order = []
-            self.plugin_settings = {}
+                pass
     
     def save_plugins_config(self):
         """Save plugin configuration to JSON file"""
@@ -1054,14 +949,13 @@ class ModernTextractorGUI:
     
     def load_game_profiles(self):
         """Load game profiles from JSON file"""
+        self.game_profiles = {}
         if self.game_profiles_path and self.game_profiles_path.exists():
             try:
                 with open(self.game_profiles_path, 'r', encoding='utf-8') as f:
                     self.game_profiles = json.load(f)
             except Exception:
-                self.game_profiles = {}
-        else:
-            self.game_profiles = {}
+                pass
     
     def save_game_profiles(self):
         """Save game profiles to JSON file"""
