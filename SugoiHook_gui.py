@@ -699,7 +699,7 @@ class ModernTextractorGUI:
         # Create settings dialog with larger size for more settings
         dialog = tk.Toplevel(self.root)
         dialog.title(f"Configure {plugin_name}")
-        dialog.geometry("600x700")
+        dialog.geometry("800x900")
         dialog.configure(bg=self.colors['bg'])
         dialog.transient(self.root)
         dialog.grab_set()
