@@ -36,6 +36,10 @@ class RemoveSpecialCharsPlugin(TextractorPlugin):
         self._repeated_char_pattern = re.compile(r'^(.)\1{4,}$')
         # Pattern for decorative lines (mixed repeated chars)
         self._decorative_pattern = re.compile(r'^[\-_=~*#.]{3,}$')
+        # Japanese / extracted newline symbols
+        self._jp_newline_pattern = re.compile(
+            r'(\\n|¥n|⏎|↵)'
+        )
     
     def process_text(self, text: str) -> Optional[str]:
         """
@@ -47,23 +51,27 @@ class RemoveSpecialCharsPlugin(TextractorPlugin):
         Returns:
             The original text if it contains meaningful content, None otherwise
         """
-        text_clean = text.strip()
-        
-        if not text_clean:
-            return text  # Let empty text pass through (other plugins can handle it)
-        
-        # Check if text consists only of special characters/symbols
-        if self._special_char_pattern.match(text_clean):
+        if not text:
+            return text
+
+        # Remove Japanese-style newline symbols
+        text = self._jp_newline_pattern.sub('', text)
+
+        # Normalize whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+
+        if not text:
+            return text
+
+        if self._special_char_pattern.match(text):
             return None
-        
-        # Check if text is same character repeated many times
-        if self._repeated_char_pattern.match(text_clean):
+
+        if self._repeated_char_pattern.match(text):
             return None
-        
-        # Check if text is a decorative line
-        if self._decorative_pattern.match(text_clean):
+
+        if self._decorative_pattern.match(text):
             return None
-        
+
         return text
     
     def reset(self):
