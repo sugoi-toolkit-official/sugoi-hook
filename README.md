@@ -1,8 +1,8 @@
 # Sugoi Hook - Translating Visual Novel in 3 steps
 
-For any queries, support, or discussions, join the **Sugoi Toolkit Discord Server**:
+For any queries, support, or discussions, join the **Sugoi Translate Discord Server**:
 
-🔗 [Join Sugoi Toolkit Server](https://discord.gg/XFbWSjMHJh)
+🔗 [Join Sugoi Translate Server](https://discord.gg/XFbWSjMHJh)
 
 Demo Video:
 
