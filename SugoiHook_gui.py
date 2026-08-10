@@ -60,34 +60,35 @@ class ModernTextractorGUI:
         self.root.minsize(900, 650)
         
         # Color schemes for light/dark mode
+        # Dark theme: near-black background with vivid orange accents (Sugoi Chat style)
         self.dark_colors = {
-            'bg': '#1e1e2e',
-            'fg': '#cdd6f4',
-            'primary': '#89b4fa',
-            'secondary': '#f38ba8',
-            'success': '#a6e3a1',
-            'warning': '#f9e2af',
-            'surface': '#313244',
-            'surface_light': '#45475a',
-            'border': '#585b70',
-            'text': '#cdd6f4',
-            'text_dim': '#9399b2',
-            'accent': '#b4befe'
+            'bg': '#0a0a0a',
+            'fg': '#f5f5f5',
+            'primary': '#ff5a1f',
+            'secondary': '#e5484d',
+            'success': '#3fb950',
+            'warning': '#e3a008',
+            'surface': '#161616',
+            'surface_light': '#242424',
+            'border': '#2e2e2e',
+            'text': '#f5f5f5',
+            'text_dim': '#8a8a8a',
+            'accent': '#ff7a44'
         }
         
         self.light_colors = {
-            'bg': '#eff1f5',
-            'fg': '#4c4f69',
-            'primary': '#1e66f5',
-            'secondary': '#d20f39',
-            'success': '#40a02b',
-            'warning': '#df8e1d',
-            'surface': '#e6e9ef',
-            'surface_light': '#ccd0da',
-            'border': '#9ca0b0',
-            'text': '#4c4f69',
-            'text_dim': '#6c6f85',
-            'accent': '#7287fd'
+            'bg': '#fafafa',
+            'fg': '#1a1a1a',
+            'primary': '#ff5a1f',
+            'secondary': '#e5484d',
+            'success': '#2f9e44',
+            'warning': '#e3a008',
+            'surface': '#ffffff',
+            'surface_light': '#f0f0f0',
+            'border': '#d4d4d4',
+            'text': '#1a1a1a',
+            'text_dim': '#737373',
+            'accent': '#ff7a44'
         }
         
         # Current theme - dark mode is default
@@ -1659,7 +1660,7 @@ class ModernTextractorGUI:
                     "padding": (15, 8)
                 },
                 "map": {
-                    "background": [("active", "#f5c2e7")]
+                    "background": [("active", "#f87171")]
                 }
             },
             "TEntry": {
@@ -3084,7 +3085,7 @@ For more information, refer to the Textractor documentation.
                         draw = ImageDraw.Draw(image)
                         
                         # Draw a solid rounded rectangle background
-                        draw.rounded_rectangle([(4, 4), (60, 60)], radius=12, fill='#89b4fa')
+                        draw.rounded_rectangle([(4, 4), (60, 60)], radius=12, fill='#ff5a1f')
                         
                         # Draw "T" letter in white - use simple drawing without font
                         # Draw a large "T" using rectangles for better visibility
@@ -3096,7 +3097,7 @@ For more information, refer to the Textractor documentation.
                         return image
                     except Exception:
                         # Ultimate fallback - simple colored square
-                        image = Image.new('RGBA', (64, 64), '#89b4fa')
+                        image = Image.new('RGBA', (64, 64), '#ff5a1f')
                         return image
             
             def get_connection_status():
