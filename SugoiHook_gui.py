@@ -56,8 +56,8 @@ class ModernTextractorGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("✨ Sugoi Hook - Modern Text Extraction")
-        self.root.geometry("1000x750")
-        self.root.minsize(900, 650)
+        self.root.geometry("800x750")
+        self.root.minsize(750, 650)
         
         # Color schemes for light/dark mode
         # Dark theme: near-black background with vivid orange accents (Sugoi Chat style)
@@ -102,11 +102,11 @@ class ModernTextractorGUI:
             self.scale_factor = 1.0
         
         # Apply scaling to window size
-        width = int(1000 * self.scale_factor)
+        width = int(800 * self.scale_factor)
         height = int(750 * self.scale_factor)
         self.root.geometry(f"{width}x{height}")
         
-        min_width = int(900 * self.scale_factor)
+        min_width = int(750 * self.scale_factor)
         min_height = int(650 * self.scale_factor)
         self.root.minsize(min_width, min_height)
         
@@ -1920,8 +1920,8 @@ class ModernTextractorGUI:
         list_frame.rowconfigure(0, weight=1)
         
         columns = ('pid', 'arch', 'name')
-        self.process_tree = ttk.Treeview(list_frame, columns=columns, show='tree headings', height=3)
-        self.process_tree_default_height = 3
+        self.process_tree = ttk.Treeview(list_frame, columns=columns, show='tree headings', height=4)
+        self.process_tree_default_height = 4
         self.process_tree.heading('#0', text='')
         self.process_tree.heading('pid', text='PID')
         self.process_tree.heading('arch', text='Arch')
@@ -1972,8 +1972,8 @@ class ModernTextractorGUI:
         list_frame.rowconfigure(0, weight=1)
         
         columns = ('id', 'function', 'preview')
-        self.hook_tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=3)
-        self.hook_tree_default_height = 3
+        self.hook_tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=4)
+        self.hook_tree_default_height = 4
         self.hook_tree.heading('id', text='ID')
         self.hook_tree.heading('function', text='Function')
         self.hook_tree.heading('preview', text='Text Preview')
@@ -2063,7 +2063,7 @@ class ModernTextractorGUI:
         list_frame.rowconfigure(0, weight=1)
         
         columns = ('status', 'name', 'version', 'description', 'actions')
-        self.plugins_tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=3)
+        self.plugins_tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=4)
         self.plugins_tree.heading('status', text='Status')
         self.plugins_tree.heading('name', text='Plugin Name')
         self.plugins_tree.heading('version', text='Version')
